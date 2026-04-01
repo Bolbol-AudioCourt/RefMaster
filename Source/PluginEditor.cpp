@@ -196,6 +196,7 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     auto referenceText = referenceCard.reduced (14);
     const auto hasReference = audioProcessor.hasReferenceTrack();
     const auto correlation = hasReference ? calculateSpectrumCorrelation() : 0.0f;
+    const auto previewTrimDb = hasReference ? audioProcessor.getPreviewOutputTrimDb() : 0.0f;
     const auto previewProcessingActive = hasReference
                                       && audioProcessor.isPreviewEqEnabled()
                                       && ! audioProcessor.isPreviewEqBypassed()
@@ -354,6 +355,12 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("CORR", footer.removeFromLeft (42), juce::Justification::centredLeft);
     g.setColour (successColour);
     g.drawText (audioProcessor.hasReferenceTrack() ? juce::String (correlation, 2) : juce::String ("--"),
+                footer,
+                juce::Justification::centredLeft);
+    g.setColour (mutedTextColour);
+    g.drawText ("TRIM", footer.removeFromLeft (42), juce::Justification::centredLeft);
+    g.setColour (previewProcessingActive ? textColour : mutedTextColour);
+    g.drawText (hasReference ? juce::String (previewTrimDb, 1) + " dB" : juce::String ("--"),
                 footer,
                 juce::Justification::centredLeft);
 }
