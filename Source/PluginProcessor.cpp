@@ -425,7 +425,8 @@ void BolbolRefMasterAudioProcessor::setPreviewEqEnabled (bool shouldBeEnabled) n
 
 bool BolbolRefMasterAudioProcessor::isPreviewEqEnabled() const noexcept
 {
-    return previewEqEnabled.load (std::memory_order_acquire);
+    return referenceTrackLoaded.load (std::memory_order_acquire)
+        && previewEqEnabled.load (std::memory_order_acquire);
 }
 
 bool BolbolRefMasterAudioProcessor::loadReferenceFile (const juce::File& file)

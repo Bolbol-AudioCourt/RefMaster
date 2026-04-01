@@ -175,6 +175,7 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
 
     auto referenceCard = sidebarContent.removeFromTop (146);
     referenceCardBounds = referenceCard;
+    previewEqToggle.setEnabled (audioProcessor.hasReferenceTrack());
     g.setColour (juce::Colour (0xff15161c));
     g.fillRoundedRectangle (referenceCard.toFloat(), 12.0f);
     g.setColour (borderColour);
@@ -312,8 +313,8 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawFittedText (hasReference
                           ? (previewProcessingActive
                                  ? "Reference loaded. Preview EQ is active and the analyzer is showing processor-backed matching guidance."
-                                 : "Reference loaded. Analyzer comparison is active, but preview processing is currently blended out.")
-                          : "Load or drop a reference track to unlock comparison, target preview, and live metrics.",
+                                 : "Reference loaded. Comparison is active. Enable Preview EQ to audition the current matching guidance.")
+                          : "Load or drop a reference track to unlock comparison, target preview, and Preview EQ controls.",
                       statusArea,
                       juce::Justification::topLeft,
                       3);
