@@ -743,14 +743,14 @@ void BolbolRefMasterAudioProcessor::updatePreviewFilterCoefficients (int numSamp
         if (index == 0)
         {
             coefficients = juce::dsp::IIR::ArrayCoefficients<float>::makeLowShelf (currentSampleRate,
-                                                                                   60.0f,
+                                                                                   juce::jlimit (20.0f, 120.0f, previewMatchPoints[index].frequencyHz),
                                                                                    bandQValues[index],
                                                                                    gainFactor);
         }
         else if (index == previewFilters.size() - 1)
         {
             coefficients = juce::dsp::IIR::ArrayCoefficients<float>::makeHighShelf (currentSampleRate,
-                                                                                    12000.0f,
+                                                                                    juce::jlimit (6000.0f, 20000.0f, previewMatchPoints[index].frequencyHz),
                                                                                     bandQValues[index],
                                                                                     gainFactor);
         }
