@@ -548,6 +548,7 @@ void BolbolRefMasterAudioProcessorEditor::drawBandSummary (juce::Graphics& g, ju
     const auto hasReference = audioProcessor.hasReferenceTrack();
     const auto previewBandAdjustments = audioProcessor.getPreviewBandAdjustmentsDb();
     const auto previewMatchPoints = audioProcessor.getPreviewMatchPoints();
+    const auto currentPreviewBandGainsDb = audioProcessor.getCurrentPreviewEqBandGainsDb();
 
     g.setFont (juce::FontOptions (15.0f));
 
@@ -566,8 +567,10 @@ void BolbolRefMasterAudioProcessorEditor::drawBandSummary (juce::Graphics& g, ju
         g.setColour (juce::Colour (0x1effffff));
         g.fillRoundedRectangle (meterBounds.toFloat(), 3.0f);
 
-        const auto clampedDelta = previewBandAdjustments[static_cast<size_t> (&band - bands.data())];
-        const auto meterFillWidth = juce::jmap (std::abs (clampedDelta), 0.0f, 6.0f, 0.0f, static_cast<float> (meterBounds.getWidth()));
+        const auto bandIndex = static_cast<size_t> (&band - bands.data());
+        const auto clampedDelta = previewBandAdjustments[bandIndex];
+        const auto currentPreviewGain = currentPreviewBandGainsDb[bandIndex];
+        const auto meterFillWidth = juce::jmap (std::abs (currentPreviewGain), 0.0f, 6.0f, 0.0f, static_cast<float> (meterBounds.getWidth()));
         auto meterFill = meterBounds;
         meterFill.setWidth (juce::roundToInt (meterFillWidth));
 
@@ -583,10 +586,10 @@ void BolbolRefMasterAudioProcessorEditor::drawBandSummary (juce::Graphics& g, ju
                                   : (juce::String (verdict) == "boost" ? warningColour : negativeColour));
 
         g.setColour (hasReference ? textColour : mutedTextColour);
-        g.drawText ((hasReference ? juce::String (clampedDelta, 1) : juce::String ("--")) + " dB",
+        g.drawText ((hasReference ? juce::String (currentPreviewGain, 1) : juce::String ("--")) + " dB",
                     valueBounds, juce::Justification::centredRight);
 
-        const auto matchPoint = previewMatchPoints[static_cast<size_t> (&band - bands.data())];
+        const auto matchPoint = previewMatchPoints[bandIndex];
         const auto frequencyLabel = matchPoint.frequencyHz >= 1000.0f
                                       ? juce::String (matchPoint.frequencyHz / 1000.0f, 1) + "k"
                                       : juce::String (juce::roundToInt (matchPoint.frequencyHz));
@@ -616,6 +619,7 @@ void BolbolRefMasterAudioProcessorEditor::drawDetailedSummary (juce::Graphics& g
 
     const auto hasReference = audioProcessor.hasReferenceTrack();
     const auto previewMatchPoints = audioProcessor.getPreviewMatchPoints();
+    const auto currentPreviewBandGainsDb = audioProcessor.getCurrentPreviewEqBandGainsDb();
 
     g.setFont (juce::FontOptions (14.0f));
     g.setColour (labelColour);
@@ -626,8 +630,9 @@ void BolbolRefMasterAudioProcessorEditor::drawDetailedSummary (juce::Graphics& g
     g.drawText ("Q", labels.removeFromLeft (60), juce::Justification::centredLeft);
     g.drawText ("Status", labels, juce::Justification::centredLeft);
 
-    for (const auto& matchPoint : previewMatchPoints)
+    for (size_t index = 0; index < previewMatchPoints.size(); ++index)
     {
+        const auto& matchPoint = previewMatchPoints[index];
         auto row = content.removeFromTop (30);
         auto dotBounds = row.removeFromLeft (14).reduced (2);
         auto frequencyBounds = row.removeFromLeft (156);
@@ -641,14 +646,14 @@ void BolbolRefMasterAudioProcessorEditor::drawDetailedSummary (juce::Graphics& g
         const auto frequencyText = matchPoint.frequencyHz >= 1000.0f
                                      ? juce::String (matchPoint.frequencyHz / 1000.0f, 1) + " kHz"
                                      : juce::String (juce::roundToInt (matchPoint.frequencyHz)) + " Hz";
-        const auto gainText = hasReference ? juce::String (matchPoint.gainDb, 1) + " dB" : juce::String ("--");
+        const auto gainText = hasReference ? juce::String (currentPreviewBandGainsDb[index], 1) + " dB" : juce::String ("--");
         const auto qText = juce::String (matchPoint.q, 2);
         const auto statusText = ! hasReference ? "waiting"
-                               : (matchPoint.gainDb > 1.0f ? "boost preview"
-                               : (matchPoint.gainDb < -1.0f ? "cut preview" : "close"));
+                               : (currentPreviewBandGainsDb[index] > 1.0f ? "boost preview"
+                               : (currentPreviewBandGainsDb[index] < -1.0f ? "cut preview" : "close"));
         const auto statusColour = ! hasReference ? mutedTextColour
                                  : (statusText == "close" ? successColour
-                                 : (matchPoint.gainDb > 0.0f ? warningColour : negativeColour));
+                                 : (currentPreviewBandGainsDb[index] > 0.0f ? warningColour : negativeColour));
 
         g.setColour (textColour);
         g.drawText (frequencyText, frequencyBounds, juce::Justification::centredLeft);

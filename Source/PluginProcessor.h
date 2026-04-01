@@ -77,6 +77,7 @@ public:
     std::array<float, spectrumBinCount> getPreviewDifferenceSpectrumDb() const noexcept;
     std::array<float, previewBandCount> getPreviewBandAdjustmentsDb() const noexcept;
     std::array<PreviewMatchPoint, previewBandCount> getPreviewMatchPoints() const noexcept;
+    std::array<float, previewBandCount> getCurrentPreviewEqBandGainsDb() const noexcept;
     float getPreviewOutputTrimDb() const noexcept;
     void setPreviewEqBypassed (bool shouldBeBypassed) noexcept;
     bool isPreviewEqBypassed() const noexcept;
@@ -111,6 +112,7 @@ private:
     std::array<std::array<float, spectrumBinCount>, 2> referenceSpectrumBuffers {};
     std::array<PreviewFilter, previewBandCount> previewFilters {};
     std::array<juce::LinearSmoothedValue<float>, previewBandCount> previewBandGainSmoothers {};
+    std::array<std::atomic<float>, previewBandCount> currentPreviewBandGainsDb {};
     std::atomic<int> activeSpectrumBufferIndex { 0 };
     std::atomic<int> activeReferenceSpectrumBufferIndex { 0 };
     std::atomic<bool> referenceTrackLoaded { false };

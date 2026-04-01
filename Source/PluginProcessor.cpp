@@ -410,6 +410,16 @@ BolbolRefMasterAudioProcessor::getPreviewMatchPoints() const noexcept
     return matchPoints;
 }
 
+std::array<float, BolbolRefMasterAudioProcessor::previewBandCount> BolbolRefMasterAudioProcessor::getCurrentPreviewEqBandGainsDb() const noexcept
+{
+    std::array<float, previewBandCount> gains {};
+
+    for (size_t i = 0; i < gains.size(); ++i)
+        gains[i] = currentPreviewBandGainsDb[i].load (std::memory_order_acquire);
+
+    return gains;
+}
+
 float BolbolRefMasterAudioProcessor::getPreviewOutputTrimDb() const noexcept
 {
     const auto bandAdjustments = getPreviewBandAdjustmentsDb();
@@ -624,6 +634,7 @@ void BolbolRefMasterAudioProcessor::updatePreviewFilterCoefficients (int numSamp
         const auto targetGainDb = hasReferenceTrack() ? previewMatchPoints[index].gainDb : 0.0f;
         previewBandGainSmoothers[index].setTargetValue (targetGainDb);
         const auto smoothedGainDb = previewBandGainSmoothers[index].skip (numSamples);
+        currentPreviewBandGainsDb[index].store (smoothedGainDb, std::memory_order_release);
         const auto gainFactor = juce::Decibels::decibelsToGain (smoothedGainDb);
 
         std::array<float, 6> coefficients;
