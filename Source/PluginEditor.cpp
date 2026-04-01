@@ -108,8 +108,10 @@ void BolbolRefMasterAudioProcessorEditor::mouseUp (const juce::MouseEvent& event
         {
             audioProcessor.setPreviewEqEnabled (true);
             audioProcessor.setPreviewEqBypassed (false);
+            audioProcessor.setPreviewBlendAmount (1.0f);
             previewEqToggle.setToggleState (true, juce::dontSendNotification);
             previewBypassToggle.setToggleState (false, juce::dontSendNotification);
+            previewBlendSlider.setValue (1.0, juce::dontSendNotification);
             repaint();
         }
 
@@ -120,9 +122,11 @@ void BolbolRefMasterAudioProcessorEditor::mouseUp (const juce::MouseEvent& event
     {
         audioProcessor.clearReferenceTrack();
         audioProcessor.setPreviewBlendAmount (0.5f);
+        audioProcessor.setPreviewOutputGainDb (0.0f);
         previewEqToggle.setToggleState (false, juce::dontSendNotification);
         previewBypassToggle.setToggleState (false, juce::dontSendNotification);
-            previewBlendSlider.setValue (0.5, juce::dontSendNotification);
+        previewBlendSlider.setValue (0.5, juce::dontSendNotification);
+        previewOutputGainSlider.setValue (0.0, juce::dontSendNotification);
         displayReferenceSpectrum.fill (0.0f);
         displayTargetPreviewSpectrum.fill (0.0f);
         repaint();
