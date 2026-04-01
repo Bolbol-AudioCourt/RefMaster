@@ -10,7 +10,20 @@
 #include "PluginEditor.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
+#include <memory>
+
+namespace
+{
+juce::String formatReferenceDuration (double seconds)
+{
+    const auto totalSeconds = juce::jmax (0, juce::roundToInt (seconds));
+    const auto minutes = totalSeconds / 60;
+    const auto remainingSeconds = totalSeconds % 60;
+    return juce::String (minutes) + ":" + juce::String (remainingSeconds).paddedLeft ('0', 2);
+}
+}
 
 //==============================================================================
 BolbolRefMasterAudioProcessor::BolbolRefMasterAudioProcessor()
@@ -25,6 +38,7 @@ BolbolRefMasterAudioProcessor::BolbolRefMasterAudioProcessor()
                        )
 #endif
 {
+    audioFormatManager.registerBasicFormats();
 }
 
 BolbolRefMasterAudioProcessor::~BolbolRefMasterAudioProcessor()
@@ -102,12 +116,16 @@ void BolbolRefMasterAudioProcessor::prepareToPlay (double sampleRate, int sample
     // initialisation that you need..
     fifoIndex = 0;
     activeSpectrumBufferIndex.store (0, std::memory_order_release);
+    activeReferenceSpectrumBufferIndex.store (0, std::memory_order_release);
 
     analysisFifo.fill (0.0f);
     fftData.fill (0.0f);
 
     for (auto& spectrumBuffer : spectrumBuffers)
         spectrumBuffer.fill (0.0f);
+
+    for (auto& referenceSpectrumBuffer : referenceSpectrumBuffers)
+        referenceSpectrumBuffer.fill (0.0f);
 }
 
 void BolbolRefMasterAudioProcessor::releaseResources()
@@ -204,6 +222,116 @@ void BolbolRefMasterAudioProcessor::setStateInformation (const void* data, int s
 std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> BolbolRefMasterAudioProcessor::getLatestMagnitudeSpectrum() const noexcept
 {
     return spectrumBuffers[activeSpectrumBufferIndex.load (std::memory_order_acquire)];
+}
+
+std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> BolbolRefMasterAudioProcessor::getReferenceMagnitudeSpectrum() const noexcept
+{
+    return referenceSpectrumBuffers[activeReferenceSpectrumBufferIndex.load (std::memory_order_acquire)];
+}
+
+bool BolbolRefMasterAudioProcessor::loadReferenceFile (const juce::File& file)
+{
+    auto reader = std::unique_ptr<juce::AudioFormatReader> (audioFormatManager.createReaderFor (file));
+
+    if (reader == nullptr)
+        return false;
+
+    juce::dsp::FFT referenceFFT { fftOrder };
+    juce::dsp::WindowingFunction<float> referenceWindow {
+        static_cast<size_t> (fftSize),
+        juce::dsp::WindowingFunction<float>::hann
+    };
+
+    std::array<float, fftSize> localFifo {};
+    std::array<float, fftSize * 2> localFftData {};
+    std::array<float, spectrumBinCount> averagedSpectrum {};
+    int localFifoIndex = 0;
+    int frameCount = 0;
+
+    const auto channelCount = juce::jmax (1, static_cast<int> (reader->numChannels));
+    juce::AudioBuffer<float> readBuffer (channelCount, fftHopSize);
+
+    auto analyseFrame = [&]()
+    {
+        std::fill (localFftData.begin(), localFftData.end(), 0.0f);
+        std::copy (localFifo.begin(), localFifo.end(), localFftData.begin());
+
+        referenceWindow.multiplyWithWindowingTable (localFftData.data(), static_cast<size_t> (fftSize));
+        referenceFFT.performFrequencyOnlyForwardTransform (localFftData.data());
+
+        const auto normalisation = 1.0f / static_cast<float> (fftSize);
+
+        for (int bin = 0; bin < spectrumBinCount; ++bin)
+            averagedSpectrum[static_cast<size_t> (bin)] += localFftData[static_cast<size_t> (bin)] * normalisation;
+
+        ++frameCount;
+    };
+
+    for (juce::int64 startSample = 0; startSample < reader->lengthInSamples; startSample += fftHopSize)
+    {
+        const auto samplesToRead = static_cast<int> (juce::jmin<juce::int64> (fftHopSize, reader->lengthInSamples - startSample));
+        readBuffer.clear();
+        reader->read (&readBuffer, 0, samplesToRead, startSample, true, true);
+
+        for (int sample = 0; sample < samplesToRead; ++sample)
+        {
+            float monoSample = 0.0f;
+
+            for (int channel = 0; channel < channelCount; ++channel)
+                monoSample += readBuffer.getSample (channel, sample);
+
+            localFifo[static_cast<size_t> (localFifoIndex++)] = monoSample / static_cast<float> (channelCount);
+
+            if (localFifoIndex < fftSize)
+                continue;
+
+            analyseFrame();
+
+            std::memmove (localFifo.data(),
+                          localFifo.data() + fftHopSize,
+                          static_cast<size_t> (fftSize - fftHopSize) * sizeof (float));
+
+            localFifoIndex = fftSize - fftHopSize;
+        }
+    }
+
+    if (frameCount == 0)
+        return false;
+
+    const auto inverseFrameCount = 1.0f / static_cast<float> (frameCount);
+
+    for (auto& magnitude : averagedSpectrum)
+        magnitude *= inverseFrameCount;
+
+    const auto writeBufferIndex = 1 - activeReferenceSpectrumBufferIndex.load (std::memory_order_relaxed);
+    referenceSpectrumBuffers[static_cast<size_t> (writeBufferIndex)] = averagedSpectrum;
+    activeReferenceSpectrumBufferIndex.store (writeBufferIndex, std::memory_order_release);
+
+    const auto durationInSeconds = static_cast<double> (reader->lengthInSamples) / reader->sampleRate;
+    referenceTrackName = file.getFileName();
+    referenceTrackInfo = formatReferenceDuration (durationInSeconds)
+                       + " · "
+                       + juce::String (reader->sampleRate / 1000.0, 1)
+                       + "kHz · "
+                       + juce::String (reader->bitsPerSample)
+                       + "bit";
+    referenceTrackLoaded.store (true, std::memory_order_release);
+    return true;
+}
+
+bool BolbolRefMasterAudioProcessor::hasReferenceTrack() const noexcept
+{
+    return referenceTrackLoaded.load (std::memory_order_acquire);
+}
+
+juce::String BolbolRefMasterAudioProcessor::getReferenceTrackName() const
+{
+    return referenceTrackName;
+}
+
+juce::String BolbolRefMasterAudioProcessor::getReferenceTrackInfo() const
+{
+    return referenceTrackInfo;
 }
 
 void BolbolRefMasterAudioProcessor::pushNextSampleIntoFifo (float sample) noexcept

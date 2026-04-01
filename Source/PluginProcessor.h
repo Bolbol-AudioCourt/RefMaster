@@ -63,6 +63,11 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     std::array<float, spectrumBinCount> getLatestMagnitudeSpectrum() const noexcept;
+    std::array<float, spectrumBinCount> getReferenceMagnitudeSpectrum() const noexcept;
+    bool loadReferenceFile (const juce::File& file);
+    bool hasReferenceTrack() const noexcept;
+    juce::String getReferenceTrackName() const;
+    juce::String getReferenceTrackInfo() const;
 
 private:
     void pushNextSampleIntoFifo (float sample) noexcept;
@@ -77,7 +82,13 @@ private:
     std::array<float, fftSize> analysisFifo {};
     std::array<float, fftSize * 2> fftData {};
     std::array<std::array<float, spectrumBinCount>, 2> spectrumBuffers {};
+    std::array<std::array<float, spectrumBinCount>, 2> referenceSpectrumBuffers {};
     std::atomic<int> activeSpectrumBufferIndex { 0 };
+    std::atomic<int> activeReferenceSpectrumBufferIndex { 0 };
+    std::atomic<bool> referenceTrackLoaded { false };
+    juce::AudioFormatManager audioFormatManager;
+    juce::String referenceTrackName;
+    juce::String referenceTrackInfo;
     int fifoIndex = 0;
 
     //==============================================================================
