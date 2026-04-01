@@ -178,6 +178,10 @@ void BolbolRefMasterAudioProcessor::prepareToPlay (double sampleRate, int sample
         smoother.reset (sampleRate, previewEqSmoothingTimeSeconds);
         smoother.setCurrentAndTargetValue (0.0f);
     }
+
+    previewWetMixSmoother.reset (sampleRate, previewEqMixSmoothingTimeSeconds);
+    previewWetMixSmoother.setCurrentAndTargetValue (0.0f);
+    previewEqBuffer.setSize (static_cast<int> (spec.numChannels), samplesPerBlock, false, false, true);
 }
 
 void BolbolRefMasterAudioProcessor::releaseResources()
@@ -696,16 +700,39 @@ void BolbolRefMasterAudioProcessor::updatePreviewFilterCoefficients (int numSamp
 
 void BolbolRefMasterAudioProcessor::applyPreviewEq (juce::AudioBuffer<float>& buffer) noexcept
 {
-    if (! hasReferenceTrack() || ! isPreviewEqEnabled() || isPreviewEqBypassed())
+    const auto targetWetMix = (hasReferenceTrack() && isPreviewEqEnabled() && ! isPreviewEqBypassed()) ? 1.0f : 0.0f;
+    previewWetMixSmoother.setTargetValue (targetWetMix);
+
+    if (previewWetMixSmoother.getCurrentValue() <= 0.0f && targetWetMix <= 0.0f)
         return;
 
-    juce::dsp::AudioBlock<float> block (buffer);
+    if (buffer.getNumChannels() > previewEqBuffer.getNumChannels()
+        || buffer.getNumSamples() > previewEqBuffer.getNumSamples())
+        return;
+
+    for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+        previewEqBuffer.copyFrom (channel, 0, buffer, channel, 0, buffer.getNumSamples());
+
+    juce::dsp::AudioBlock<float> block (previewEqBuffer);
     juce::dsp::ProcessContextReplacing<float> context (block);
 
     for (auto& previewFilter : previewFilters)
         previewFilter.process (context);
 
-    buffer.applyGain (juce::Decibels::decibelsToGain (getPreviewOutputTrimDb()));
+    previewEqBuffer.applyGain (juce::Decibels::decibelsToGain (getPreviewOutputTrimDb()));
+
+    for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+    {
+        const auto wetMix = previewWetMixSmoother.getNextValue();
+        const auto dryMix = 1.0f - wetMix;
+
+        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+        {
+            const auto drySample = buffer.getSample (channel, sample);
+            const auto wetSample = previewEqBuffer.getSample (channel, sample);
+            buffer.setSample (channel, sample, (dryMix * drySample) + (wetMix * wetSample));
+        }
+    }
 }
 
 //==============================================================================

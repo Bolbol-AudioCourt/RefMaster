@@ -34,6 +34,7 @@ public:
     static constexpr float spectrumSmoothingAlpha = 0.2f;
     static constexpr int previewDifferenceSmoothingRadius = 4;
     static constexpr float previewEqSmoothingTimeSeconds = 0.08f;
+    static constexpr float previewEqMixSmoothingTimeSeconds = 0.03f;
 
     //==============================================================================
     BolbolRefMasterAudioProcessor();
@@ -114,6 +115,8 @@ private:
     std::array<PreviewFilter, previewBandCount> previewFilters {};
     std::array<juce::LinearSmoothedValue<float>, previewBandCount> previewBandGainSmoothers {};
     std::array<std::atomic<float>, previewBandCount> currentPreviewBandGainsDb {};
+    juce::LinearSmoothedValue<float> previewWetMixSmoother;
+    juce::AudioBuffer<float> previewEqBuffer;
     std::atomic<int> activeSpectrumBufferIndex { 0 };
     std::atomic<int> activeReferenceSpectrumBufferIndex { 0 };
     std::atomic<bool> referenceTrackLoaded { false };
