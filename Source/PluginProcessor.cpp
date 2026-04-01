@@ -23,6 +23,31 @@ juce::String formatReferenceDuration (double seconds)
     const auto remainingSeconds = totalSeconds % 60;
     return juce::String (minutes) + ":" + juce::String (remainingSeconds).paddedLeft ('0', 2);
 }
+
+float calculateSpectrumAverageDb (
+    const std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount>& spectrum,
+    double sampleRate)
+{
+    const auto minFrequency = 20.0f;
+    const auto maxFrequency = juce::jmin (20000.0f, static_cast<float> (sampleRate * 0.5));
+    const auto binWidth = static_cast<float> (sampleRate / BolbolRefMasterAudioProcessor::fftSize);
+
+    float sumDb = 0.0f;
+    int count = 0;
+
+    for (int bin = 1; bin < BolbolRefMasterAudioProcessor::spectrumBinCount; ++bin)
+    {
+        const auto frequency = static_cast<float> (bin) * binWidth;
+
+        if (frequency < minFrequency || frequency > maxFrequency)
+            continue;
+
+        sumDb += juce::Decibels::gainToDecibels (juce::jmax (spectrum[static_cast<size_t> (bin)], 1.0e-5f));
+        ++count;
+    }
+
+    return count > 0 ? (sumDb / static_cast<float> (count)) : 0.0f;
+}
 }
 
 //==============================================================================
@@ -227,6 +252,30 @@ std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> BolbolRefMast
 std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> BolbolRefMasterAudioProcessor::getReferenceMagnitudeSpectrum() const noexcept
 {
     return referenceSpectrumBuffers[activeReferenceSpectrumBufferIndex.load (std::memory_order_acquire)];
+}
+
+std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> BolbolRefMasterAudioProcessor::getPreviewDifferenceSpectrumDb() const noexcept
+{
+    std::array<float, spectrumBinCount> differenceSpectrum {};
+
+    if (! hasReferenceTrack())
+        return differenceSpectrum;
+
+    const auto sampleRate = juce::jmax (getSampleRate(), 44100.0);
+    const auto inputSpectrum = getLatestMagnitudeSpectrum();
+    const auto referenceSpectrum = getReferenceMagnitudeSpectrum();
+    const auto inputAverageDb = calculateSpectrumAverageDb (inputSpectrum, sampleRate);
+    const auto referenceAverageDb = calculateSpectrumAverageDb (referenceSpectrum, sampleRate);
+
+    for (int bin = 0; bin < spectrumBinCount; ++bin)
+    {
+        const auto index = static_cast<size_t> (bin);
+        const auto inputDb = juce::Decibels::gainToDecibels (juce::jmax (inputSpectrum[index], 1.0e-5f)) - inputAverageDb;
+        const auto referenceDb = juce::Decibels::gainToDecibels (juce::jmax (referenceSpectrum[index], 1.0e-5f)) - referenceAverageDb;
+        differenceSpectrum[index] = referenceDb - inputDb;
+    }
+
+    return differenceSpectrum;
 }
 
 bool BolbolRefMasterAudioProcessor::loadReferenceFile (const juce::File& file)

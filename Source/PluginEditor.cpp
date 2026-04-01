@@ -438,8 +438,7 @@ void BolbolRefMasterAudioProcessorEditor::drawBandSummary (juce::Graphics& g, ju
     const auto sampleRate = juce::jmax (audioProcessor.getSampleRate(), 44100.0);
     const auto binWidth = static_cast<float> (sampleRate / BolbolRefMasterAudioProcessor::fftSize);
     const auto hasReference = audioProcessor.hasReferenceTrack();
-    const auto inputNormalisationDb = calculateSpectrumNormalisationDb (displaySpectrum, sampleRate);
-    const auto referenceNormalisationDb = calculateSpectrumNormalisationDb (displayReferenceSpectrum, sampleRate);
+    const auto differenceSpectrumDb = audioProcessor.getPreviewDifferenceSpectrumDb();
 
     g.setFont (juce::FontOptions (15.0f));
 
@@ -470,9 +469,7 @@ void BolbolRefMasterAudioProcessorEditor::drawBandSummary (juce::Graphics& g, ju
                 if (frequency < band.lowHz || frequency >= band.highHz)
                     continue;
 
-                const auto inputDb = getNormalisedSpectrumDb (displaySpectrum, bin, inputNormalisationDb);
-                const auto referenceDb = getNormalisedSpectrumDb (displayReferenceSpectrum, bin, referenceNormalisationDb);
-                averageDeltaDb += (referenceDb - inputDb);
+                averageDeltaDb += differenceSpectrumDb[static_cast<size_t> (bin)];
                 ++count;
             }
 
