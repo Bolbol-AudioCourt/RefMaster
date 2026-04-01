@@ -41,6 +41,7 @@ private:
     BolbolRefMasterAudioProcessor& audioProcessor;
     std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> displaySpectrum {};
     std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> displayReferenceSpectrum {};
+    std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> displayTargetPreviewSpectrum {};
     std::unique_ptr<juce::FileChooser> referenceFileChooser;
     juce::Rectangle<int> referenceCardBounds;
 
