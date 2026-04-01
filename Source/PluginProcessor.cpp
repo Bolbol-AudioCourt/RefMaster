@@ -437,9 +437,9 @@ BolbolRefMasterAudioProcessor::getPreviewMatchPoints() const noexcept
         const auto [lowHz, highHz] = ranges[bandIndex];
         const auto sampleRate = juce::jmax (getSampleRate(), 44100.0);
         const auto binWidth = static_cast<float> (sampleRate / fftSize);
-        const auto octaveSpan = std::log2 (highHz / lowHz);
         float strongestMagnitude = 0.0f;
         float centreFrequency = std::sqrt (lowHz * highHz);
+        int strongestBin = 0;
 
         for (int bin = 1; bin < spectrumBinCount; ++bin)
         {
@@ -454,13 +454,48 @@ BolbolRefMasterAudioProcessor::getPreviewMatchPoints() const noexcept
             {
                 strongestMagnitude = magnitude;
                 centreFrequency = frequency;
+                strongestBin = bin;
             }
+        }
+
+        float q = juce::jmax (0.4f, 1.0f / std::log2 (highHz / lowHz));
+
+        if (strongestBin > 0 && strongestMagnitude > 1.0e-4f)
+        {
+            const auto halfMagnitude = strongestMagnitude * 0.5f;
+            int leftBin = strongestBin;
+            int rightBin = strongestBin;
+
+            while (leftBin > 1)
+            {
+                const auto frequency = static_cast<float> (leftBin) * binWidth;
+
+                if (frequency < lowHz || std::abs (differenceSpectrum[static_cast<size_t> (leftBin)]) < halfMagnitude)
+                    break;
+
+                --leftBin;
+            }
+
+            while (rightBin < spectrumBinCount - 1)
+            {
+                const auto frequency = static_cast<float> (rightBin) * binWidth;
+
+                if (frequency >= highHz || std::abs (differenceSpectrum[static_cast<size_t> (rightBin)]) < halfMagnitude)
+                    break;
+
+                ++rightBin;
+            }
+
+            const auto leftFrequency = juce::jmax (lowHz, static_cast<float> (leftBin) * binWidth);
+            const auto rightFrequency = juce::jmin (highHz, static_cast<float> (rightBin) * binWidth);
+            const auto bandwidth = juce::jmax (10.0f, rightFrequency - leftFrequency);
+            q = juce::jlimit (0.4f, 4.0f, centreFrequency / bandwidth);
         }
 
         matchPoints[bandIndex] = PreviewMatchPoint {
             centreFrequency,
             bandAdjustments[bandIndex],
-            juce::jmax (0.4f, 1.0f / octaveSpan)
+            q
         };
     }
 
