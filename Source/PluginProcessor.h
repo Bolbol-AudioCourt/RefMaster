@@ -77,6 +77,7 @@ public:
     std::array<float, spectrumBinCount> getPreviewDifferenceSpectrumDb() const noexcept;
     std::array<float, previewBandCount> getPreviewBandAdjustmentsDb() const noexcept;
     std::array<PreviewMatchPoint, previewBandCount> getPreviewMatchPoints() const noexcept;
+    float getPreviewOutputTrimDb() const noexcept;
     void setPreviewEqEnabled (bool shouldBeEnabled) noexcept;
     bool isPreviewEqEnabled() const noexcept;
     void setPreviewBlendAmount (float newAmount) noexcept;

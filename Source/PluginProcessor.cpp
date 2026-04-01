@@ -408,6 +408,18 @@ BolbolRefMasterAudioProcessor::getPreviewMatchPoints() const noexcept
     return matchPoints;
 }
 
+float BolbolRefMasterAudioProcessor::getPreviewOutputTrimDb() const noexcept
+{
+    const auto bandAdjustments = getPreviewBandAdjustmentsDb();
+    float sum = 0.0f;
+
+    for (auto gainDb : bandAdjustments)
+        sum += gainDb;
+
+    const auto averageGainDb = sum / static_cast<float> (bandAdjustments.size());
+    return juce::jlimit (-3.0f, 3.0f, -averageGainDb * 0.35f);
+}
+
 void BolbolRefMasterAudioProcessor::setPreviewBlendAmount (float newAmount) noexcept
 {
     previewBlendAmount.store (juce::jlimit (0.0f, 1.0f, newAmount), std::memory_order_release);
@@ -640,6 +652,8 @@ void BolbolRefMasterAudioProcessor::applyPreviewEq (juce::AudioBuffer<float>& bu
 
     for (auto& previewFilter : previewFilters)
         previewFilter.process (context);
+
+    buffer.applyGain (juce::Decibels::decibelsToGain (getPreviewOutputTrimDb()));
 }
 
 //==============================================================================
