@@ -129,6 +129,24 @@ int main (int argc, char* argv[])
         const auto bypassed = runProcessorOnFile (inputFile, true, true, 0.5f, 256);
         const auto zeroBlend = runProcessorOnFile (inputFile, true, false, 0.0f, 256);
 
+        probe.setPreviewEqEnabled (true);
+        probe.setPreviewEqBypassed (false);
+        probe.setPreviewBlendAmount (0.73f);
+        probe.setPreviewOutputGainDb (1.5f);
+
+        juce::MemoryBlock savedState;
+        probe.getStateInformation (savedState);
+
+        BolbolRefMasterAudioProcessor restored;
+        restored.prepareToPlay (44100.0, 512);
+        restored.setStateInformation (savedState.getData(), static_cast<int> (savedState.getSize()));
+
+        const bool restoredReference = restored.hasReferenceTrack();
+        const bool restoredEnabled = restored.isPreviewEqEnabled();
+        const bool restoredBypassed = restored.isPreviewEqBypassed();
+        const bool restoredBlend = std::abs (restored.getPreviewBlendAmount() - 0.73f) < 0.01f;
+        const bool restoredGain = std::abs (restored.getPreviewOutputGainDb() - 1.5f) < 0.15f;
+
         auto printStats = [] (const char* label, const RunStats& stats)
         {
             std::cout << label
@@ -157,8 +175,23 @@ int main (int argc, char* argv[])
         std::cout << "bypass_near_dry=" << (bypassIsNearDry ? "true" : "false") << "\n";
         std::cout << "zero_blend_near_dry=" << (zeroBlendNearDry ? "true" : "false") << "\n";
         std::cout << "numerically_safe=" << (numericallySafe ? "true" : "false") << "\n";
+        std::cout << "state_restored_reference=" << (restoredReference ? "true" : "false") << "\n";
+        std::cout << "state_restored_enabled=" << (restoredEnabled ? "true" : "false") << "\n";
+        std::cout << "state_restored_bypassed=" << (restoredBypassed ? "true" : "false") << "\n";
+        std::cout << "state_restored_blend=" << (restoredBlend ? "true" : "false") << "\n";
+        std::cout << "state_restored_gain=" << (restoredGain ? "true" : "false") << "\n";
 
-        return (loaded && dryIsTransparent && wetChangesSignal && bypassIsNearDry && zeroBlendNearDry && numericallySafe) ? 0 : 2;
+        return (loaded
+             && dryIsTransparent
+             && wetChangesSignal
+             && bypassIsNearDry
+             && zeroBlendNearDry
+             && numericallySafe
+             && restoredReference
+             && restoredEnabled
+             && ! restoredBypassed
+             && restoredBlend
+             && restoredGain) ? 0 : 2;
     }
     catch (const std::exception& e)
     {
