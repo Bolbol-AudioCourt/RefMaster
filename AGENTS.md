@@ -5,7 +5,7 @@
 - `JuceLibraryCode/` is generated JUCE support code; avoid manual edits unless a JUCE export issue requires it.
 - `Builds/MacOSX/` contains the generated Xcode project (`Bolbol RefMaster.xcodeproj`) and local build outputs.
 - `Bolbol RefMaster.jucer` is the Projucer project definition; regenerate IDE files from here when project settings change.
-- `docs/` contains plugin planning references; review these before architecture, DSP, or UI work: `docs/01_product.md.md` (product goals), `docs/02_audio_behavior.md.md` (audio behavior), `docs/03_dsp_design.md.md` (DSP design), `docs/04_ui_ux.md.md`, and `docs/ui-ux-design.png` (the primary UI/UX design reference for implementation).
+- `docs/` contains plugin planning references; review these before architecture, DSP, or UI work: `docs/01_product.md.md` (product goals), `docs/02_audio_behavior.md.md` (audio behavior), `docs/03_dsp_design.md.md` (DSP design), `docs/04_ui_ux.md.md`, `docs/ui-ux-design.png` (the primary UI/UX design reference for implementation), and `docs/05_apc_workflow_reference.md` (APC-inspired workflow guidance for this repo).
 - `handoff.md` captures the current product and DSP direction; read it before large changes.
 
 ## Build, Test, and Development Commands
@@ -61,4 +61,5 @@ Never leave the project in a modified but uncommitted state after completing a t
 - Keep analysis code in `PluginProcessor` and rendering in `PluginEditor`.
 - Use `docs/` as the planning source of truth for plugin goals, audio behavior, DSP design, and UI/UX direction before proposing or implementing changes.
 - For UI implementation, match the layout and visual direction from `docs/ui-ux-design.png`; use it as the main design reference even if the markdown UI doc is sparse.
+- Use APC as a workflow reference only: follow its Dream → Plan → Design → Implement → Ship mindset via `docs/05_apc_workflow_reference.md`, but keep this repo’s existing Projucer/Xcode structure.
 - The current roadmap starts with a minimal FFT analyzer; defer EQ matching and broader architecture work until the analyzer is stable.

@@ -1,0 +1,12 @@
+{
+  "plugin": "Bolbol RefMaster",
+  "workflow_reference": "APC-inspired, repo-local only",
+  "phase": "implement",
+  "current_focus": "fft-analyzer-and-reference-preview",
+  "design_reference": "docs/ui-ux-design.png",
+  "build_system": "Projucer + Xcode",
+  "completed": [],
+  "next_steps": [],
+  "risks": [],
+  "notes": ""
+}
