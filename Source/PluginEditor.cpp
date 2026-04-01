@@ -289,7 +289,10 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     g.setColour (mutedTextColour);
     g.drawText ("CORR", footer.removeFromLeft (42), juce::Justification::centredLeft);
     g.setColour (successColour);
-    g.drawText ("0.94", footer, juce::Justification::centredLeft);
+    const auto correlation = audioProcessor.hasReferenceTrack()
+                           ? juce::String (calculateSpectrumCorrelation(), 2)
+                           : juce::String ("--");
+    g.drawText (correlation, footer, juce::Justification::centredLeft);
 }
 
 void BolbolRefMasterAudioProcessorEditor::resized()
@@ -614,6 +617,42 @@ float BolbolRefMasterAudioProcessorEditor::getNormalisedSpectrumDb (
 {
     const auto magnitude = juce::jmax (spectrum[static_cast<size_t> (bin)], 1.0e-5f);
     return juce::Decibels::gainToDecibels (magnitude) - normalisationDb - 24.0f;
+}
+
+float BolbolRefMasterAudioProcessorEditor::calculateSpectrumCorrelation() const
+{
+    if (! audioProcessor.hasReferenceTrack())
+        return 0.0f;
+
+    const auto sampleRate = juce::jmax (audioProcessor.getSampleRate(), 44100.0);
+    const auto binWidth = static_cast<float> (sampleRate / BolbolRefMasterAudioProcessor::fftSize);
+    const auto inputNormalisationDb = calculateSpectrumNormalisationDb (displaySpectrum, sampleRate);
+    const auto referenceNormalisationDb = calculateSpectrumNormalisationDb (displayReferenceSpectrum, sampleRate);
+
+    float dot = 0.0f;
+    float inputEnergy = 0.0f;
+    float referenceEnergy = 0.0f;
+
+    for (int bin = 1; bin < BolbolRefMasterAudioProcessor::spectrumBinCount; ++bin)
+    {
+        const auto frequency = static_cast<float> (bin) * binWidth;
+
+        if (frequency < 20.0f || frequency > 20000.0f)
+            continue;
+
+        const auto inputDb = getNormalisedSpectrumDb (displaySpectrum, bin, inputNormalisationDb);
+        const auto referenceDb = getNormalisedSpectrumDb (displayReferenceSpectrum, bin, referenceNormalisationDb);
+
+        dot += inputDb * referenceDb;
+        inputEnergy += inputDb * inputDb;
+        referenceEnergy += referenceDb * referenceDb;
+    }
+
+    if (inputEnergy <= 0.0f || referenceEnergy <= 0.0f)
+        return 0.0f;
+
+    const auto cosineSimilarity = dot / std::sqrt (inputEnergy * referenceEnergy);
+    return juce::jlimit (0.0f, 1.0f, 0.5f * (cosineSimilarity + 1.0f));
 }
 
 void BolbolRefMasterAudioProcessorEditor::drawSpectrumScale (juce::Graphics& g, juce::Rectangle<float> bounds) const
