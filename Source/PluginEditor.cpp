@@ -174,6 +174,7 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     auto referenceText = referenceCard.reduced (14);
     const auto hasReference = audioProcessor.hasReferenceTrack();
     const auto correlation = hasReference ? calculateSpectrumCorrelation() : 0.0f;
+    const auto previewProcessingActive = hasReference && audioProcessor.getPreviewBlendAmount() > 0.001f;
     const auto referenceName = hasReference ? audioProcessor.getReferenceTrackName()
                                             : juce::String ("Click to load reference");
     const auto referenceInfo = hasReference ? audioProcessor.getReferenceTrackInfo()
@@ -293,7 +294,9 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
 
     g.setColour (textColour);
     g.drawFittedText (hasReference
-                          ? "Reference loaded. Analyzer comparison is active and the preview curves are now data-driven."
+                          ? (previewProcessingActive
+                                 ? "Reference loaded. Preview EQ is active and the analyzer is showing processor-backed matching guidance."
+                                 : "Reference loaded. Analyzer comparison is active, but preview processing is currently blended out.")
                           : "Load or drop a reference track to unlock comparison, target preview, and live metrics.",
                       statusArea,
                       juce::Justification::topLeft,
@@ -315,8 +318,8 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("2048", footer.removeFromLeft (56), juce::Justification::centredLeft);
     g.setColour (mutedTextColour);
     g.drawText ("MODE", footer.removeFromLeft (48), juce::Justification::centredLeft);
-    g.setColour (warningColour);
-    g.drawText ("ANALYZER", footer.removeFromLeft (90), juce::Justification::centredLeft);
+    g.setColour (previewProcessingActive ? warningColour : mutedTextColour);
+    g.drawText (previewProcessingActive ? "PREVIEW EQ" : "ANALYZER", footer.removeFromLeft (90), juce::Justification::centredLeft);
     g.setColour (mutedTextColour);
     g.drawText ("CORR", footer.removeFromLeft (42), juce::Justification::centredLeft);
     g.setColour (successColour);

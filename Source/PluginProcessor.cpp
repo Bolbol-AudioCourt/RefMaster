@@ -48,6 +48,15 @@ float calculateSpectrumAverageDb (
 
     return count > 0 ? (sumDb / static_cast<float> (count)) : 0.0f;
 }
+
+void assignIirCoefficients (juce::dsp::IIR::Coefficients<float>& destination,
+                            const std::array<float, 6>& source) noexcept
+{
+    auto* raw = destination.getRawCoefficients();
+
+    for (size_t i = 0; i < source.size(); ++i)
+        raw[i] = source[i];
+}
 }
 
 //==============================================================================
@@ -139,6 +148,7 @@ void BolbolRefMasterAudioProcessor::prepareToPlay (double sampleRate, int sample
 
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
+    currentSampleRate = sampleRate;
     fifoIndex = 0;
     activeSpectrumBufferIndex.store (0, std::memory_order_release);
     activeReferenceSpectrumBufferIndex.store (0, std::memory_order_release);
@@ -151,6 +161,23 @@ void BolbolRefMasterAudioProcessor::prepareToPlay (double sampleRate, int sample
 
     for (auto& referenceSpectrumBuffer : referenceSpectrumBuffers)
         referenceSpectrumBuffer.fill (0.0f);
+
+    juce::dsp::ProcessSpec spec;
+    spec.sampleRate = sampleRate;
+    spec.maximumBlockSize = static_cast<juce::uint32> (samplesPerBlock);
+    spec.numChannels = static_cast<juce::uint32> (juce::jmax (1, getTotalNumOutputChannels()));
+
+    for (auto& previewFilter : previewFilters)
+    {
+        previewFilter.prepare (spec);
+        previewFilter.reset();
+    }
+
+    for (auto& smoother : previewBandGainSmoothers)
+    {
+        smoother.reset (sampleRate, previewEqSmoothingTimeSeconds);
+        smoother.setCurrentAndTargetValue (0.0f);
+    }
 }
 
 void BolbolRefMasterAudioProcessor::releaseResources()
@@ -217,6 +244,9 @@ void BolbolRefMasterAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
 
         pushNextSampleIntoFifo (monoSample * inverseInputChannelCount);
     }
+
+    updatePreviewFilterCoefficients (buffer.getNumSamples());
+    applyPreviewEq (buffer);
 }
 
 //==============================================================================
@@ -478,6 +508,9 @@ void BolbolRefMasterAudioProcessor::clearReferenceTrack()
     referenceTrackName.clear();
     referenceTrackInfo.clear();
     referenceTrackLoaded.store (false, std::memory_order_release);
+
+    for (auto& smoother : previewBandGainSmoothers)
+        smoother.setTargetValue (0.0f);
 }
 
 bool BolbolRefMasterAudioProcessor::hasReferenceTrack() const noexcept
@@ -535,6 +568,55 @@ void BolbolRefMasterAudioProcessor::performFrequencyAnalysis() noexcept
     }
 
     activeSpectrumBufferIndex.store (writeBufferIndex, std::memory_order_release);
+}
+
+void BolbolRefMasterAudioProcessor::updatePreviewFilterCoefficients (int numSamples) noexcept
+{
+    const auto previewMatchPoints = getPreviewMatchPoints();
+    constexpr std::array<float, previewBandCount> bandQValues { 0.707f, 0.85f, 0.9f, 0.85f, 0.707f };
+
+    for (size_t index = 0; index < previewFilters.size(); ++index)
+    {
+        const auto targetGainDb = hasReferenceTrack() ? previewMatchPoints[index].gainDb : 0.0f;
+        previewBandGainSmoothers[index].setTargetValue (targetGainDb);
+        const auto smoothedGainDb = previewBandGainSmoothers[index].skip (numSamples);
+        const auto gainFactor = juce::Decibels::decibelsToGain (smoothedGainDb);
+
+        std::array<float, 6> coefficients;
+
+        if (index == 0)
+        {
+            coefficients = juce::dsp::IIR::ArrayCoefficients<float>::makeLowShelf (currentSampleRate,
+                                                                                   60.0f,
+                                                                                   bandQValues[index],
+                                                                                   gainFactor);
+        }
+        else if (index == previewFilters.size() - 1)
+        {
+            coefficients = juce::dsp::IIR::ArrayCoefficients<float>::makeHighShelf (currentSampleRate,
+                                                                                    12000.0f,
+                                                                                    bandQValues[index],
+                                                                                    gainFactor);
+        }
+        else
+        {
+            coefficients = juce::dsp::IIR::ArrayCoefficients<float>::makePeakFilter (currentSampleRate,
+                                                                                     previewMatchPoints[index].frequencyHz,
+                                                                                     juce::jmax (0.4f, previewMatchPoints[index].q),
+                                                                                     gainFactor);
+        }
+
+        assignIirCoefficients (*previewFilters[index].state, coefficients);
+    }
+}
+
+void BolbolRefMasterAudioProcessor::applyPreviewEq (juce::AudioBuffer<float>& buffer) noexcept
+{
+    juce::dsp::AudioBlock<float> block (buffer);
+    juce::dsp::ProcessContextReplacing<float> context (block);
+
+    for (auto& previewFilter : previewFilters)
+        previewFilter.process (context);
 }
 
 //==============================================================================

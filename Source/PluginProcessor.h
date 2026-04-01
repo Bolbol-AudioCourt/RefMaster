@@ -33,6 +33,7 @@ public:
     static constexpr int previewBandCount = 5;
     static constexpr float spectrumSmoothingAlpha = 0.2f;
     static constexpr int previewDifferenceSmoothingRadius = 4;
+    static constexpr float previewEqSmoothingTimeSeconds = 0.08f;
 
     //==============================================================================
     BolbolRefMasterAudioProcessor();
@@ -85,8 +86,13 @@ public:
     juce::String getReferenceTrackInfo() const;
 
 private:
+    using PreviewFilter = juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>,
+                                                         juce::dsp::IIR::Coefficients<float>>;
+
     void pushNextSampleIntoFifo (float sample) noexcept;
     void performFrequencyAnalysis() noexcept;
+    void updatePreviewFilterCoefficients (int numSamples) noexcept;
+    void applyPreviewEq (juce::AudioBuffer<float>& buffer) noexcept;
 
     juce::dsp::FFT forwardFFT { fftOrder };
     juce::dsp::WindowingFunction<float> windowingFunction {
@@ -98,6 +104,8 @@ private:
     std::array<float, fftSize * 2> fftData {};
     std::array<std::array<float, spectrumBinCount>, 2> spectrumBuffers {};
     std::array<std::array<float, spectrumBinCount>, 2> referenceSpectrumBuffers {};
+    std::array<PreviewFilter, previewBandCount> previewFilters {};
+    std::array<juce::LinearSmoothedValue<float>, previewBandCount> previewBandGainSmoothers {};
     std::atomic<int> activeSpectrumBufferIndex { 0 };
     std::atomic<int> activeReferenceSpectrumBufferIndex { 0 };
     std::atomic<bool> referenceTrackLoaded { false };
@@ -105,6 +113,7 @@ private:
     juce::AudioFormatManager audioFormatManager;
     juce::String referenceTrackName;
     juce::String referenceTrackInfo;
+    double currentSampleRate = 44100.0;
     int fifoIndex = 0;
 
     //==============================================================================
