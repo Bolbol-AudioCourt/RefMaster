@@ -215,10 +215,7 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     const auto hasReference = audioProcessor.hasReferenceTrack();
     const auto correlation = hasReference ? calculateSpectrumCorrelation() : 0.0f;
     const auto previewTrimDb = hasReference ? audioProcessor.getPreviewOutputTrimDb() : 0.0f;
-    const auto previewProcessingActive = hasReference
-                                      && audioProcessor.isPreviewEqEnabled()
-                                      && ! audioProcessor.isPreviewEqBypassed()
-                                      && audioProcessor.getPreviewBlendAmount() > 0.001f;
+    const auto previewProcessingActive = audioProcessor.isPreviewEqActive();
     const auto referenceName = hasReference ? audioProcessor.getReferenceTrackName()
                                             : juce::String ("Click to load reference");
     const auto referenceInfo = hasReference ? audioProcessor.getReferenceTrackInfo()

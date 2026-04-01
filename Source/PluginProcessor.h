@@ -83,6 +83,7 @@ public:
     bool isPreviewEqBypassed() const noexcept;
     void setPreviewEqEnabled (bool shouldBeEnabled) noexcept;
     bool isPreviewEqEnabled() const noexcept;
+    bool isPreviewEqActive() const noexcept;
     void setPreviewBlendAmount (float newAmount) noexcept;
     float getPreviewBlendAmount() const noexcept;
     bool loadReferenceFile (const juce::File& file);

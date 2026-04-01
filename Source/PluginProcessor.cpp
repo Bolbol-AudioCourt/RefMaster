@@ -449,8 +449,15 @@ void BolbolRefMasterAudioProcessor::setPreviewEqEnabled (bool shouldBeEnabled) n
 
 bool BolbolRefMasterAudioProcessor::isPreviewEqEnabled() const noexcept
 {
-    return referenceTrackLoaded.load (std::memory_order_acquire)
-        && previewEqEnabled.load (std::memory_order_acquire);
+    return previewEqEnabled.load (std::memory_order_acquire);
+}
+
+bool BolbolRefMasterAudioProcessor::isPreviewEqActive() const noexcept
+{
+    return hasReferenceTrack()
+        && isPreviewEqEnabled()
+        && ! isPreviewEqBypassed()
+        && getPreviewBlendAmount() > 0.001f;
 }
 
 void BolbolRefMasterAudioProcessor::setPreviewEqBypassed (bool shouldBeBypassed) noexcept
@@ -667,7 +674,7 @@ void BolbolRefMasterAudioProcessor::updatePreviewFilterCoefficients (int numSamp
 
 void BolbolRefMasterAudioProcessor::applyPreviewEq (juce::AudioBuffer<float>& buffer) noexcept
 {
-    if (! isPreviewEqEnabled() || isPreviewEqBypassed())
+    if (! hasReferenceTrack() || ! isPreviewEqEnabled() || isPreviewEqBypassed())
         return;
 
     juce::dsp::AudioBlock<float> block (buffer);
