@@ -159,6 +159,7 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
 
     auto referenceText = referenceCard.reduced (14);
     const auto hasReference = audioProcessor.hasReferenceTrack();
+    const auto correlation = hasReference ? calculateSpectrumCorrelation() : 0.0f;
     const auto referenceName = hasReference ? audioProcessor.getReferenceTrackName()
                                             : juce::String ("Click to load reference");
     const auto referenceInfo = hasReference ? audioProcessor.getReferenceTrackInfo()
@@ -170,8 +171,10 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     auto plusArea = referenceText.removeFromTop (34);
     g.setColour (juce::Colour (0x26ffffff));
     g.fillEllipse (plusArea.removeFromLeft (28).toFloat());
-    g.setColour (mutedTextColour);
-    g.drawText ("+", plusArea.withWidth (28), juce::Justification::centredLeft);
+    g.setColour (hasReference ? successColour : mutedTextColour);
+    g.drawText (hasReference ? juce::String (juce::CharPointer_UTF8 ("\xE2\x9C\x93")) : "+",
+                plusArea.withWidth (28),
+                juce::Justification::centredLeft);
 
     auto clearRow = referenceText.removeFromBottom (22);
     clearReferenceButtonBounds = clearRow.removeFromRight (84);
@@ -224,7 +227,7 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("BLEND PER DIMENSION", blendContent.removeFromTop (24), juce::Justification::centredLeft);
 
     const std::array<std::pair<const char*, int>, 4> blendRows {{
-        { "EQ", 62 },
+        { "EQ", juce::roundToInt (correlation * 100.0f) },
         { "Dynamics", 40 },
         { "Width", 50 },
         { "Loudness", 80 },
@@ -238,7 +241,7 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
         auto knobBounds = row.removeFromRight (52).reduced (4);
         auto valueBounds = row.removeFromRight (42);
 
-        g.setColour (textColour);
+        g.setColour ((juce::String (label) == "EQ" && ! hasReference) ? mutedTextColour : textColour);
         g.drawText (label, row, juce::Justification::centredLeft);
 
         g.setColour (juce::Colour (0x22ffffff));
@@ -251,7 +254,7 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
         arc.addCentredArc (knobBounds.getCentreX(), knobBounds.getCentreY(),
                            knobBounds.getWidth() * 0.5f, knobBounds.getHeight() * 0.5f,
                            0.0f, startAngle, angle, true);
-        g.setColour (accentColour);
+        g.setColour ((juce::String (label) == "EQ" && ! hasReference) ? mutedTextColour : accentColour);
         g.strokePath (arc, juce::PathStrokeType (2.0f));
 
         g.setColour (mutedTextColour);
@@ -266,7 +269,12 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("Next", statusArea.removeFromTop (24), juce::Justification::centredLeft);
 
     g.setColour (textColour);
-    g.drawFittedText ("Reference import, smoothing, and EQ matching come after the analyzer is stable.", statusArea, juce::Justification::topLeft, 3);
+    g.drawFittedText (hasReference
+                          ? "Reference loaded. Analyzer comparison is active and the preview curves are now data-driven."
+                          : "Load or drop a reference track to unlock comparison, target preview, and live metrics.",
+                      statusArea,
+                      juce::Justification::topLeft,
+                      3);
 
     auto footer = getLocalBounds().removeFromBottom (34).reduced (20, 4);
     g.setColour (juce::Colour (0xff121318));
@@ -289,10 +297,9 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     g.setColour (mutedTextColour);
     g.drawText ("CORR", footer.removeFromLeft (42), juce::Justification::centredLeft);
     g.setColour (successColour);
-    const auto correlation = audioProcessor.hasReferenceTrack()
-                           ? juce::String (calculateSpectrumCorrelation(), 2)
-                           : juce::String ("--");
-    g.drawText (correlation, footer, juce::Justification::centredLeft);
+    g.drawText (audioProcessor.hasReferenceTrack() ? juce::String (correlation, 2) : juce::String ("--"),
+                footer,
+                juce::Justification::centredLeft);
 }
 
 void BolbolRefMasterAudioProcessorEditor::resized()
