@@ -116,6 +116,8 @@ void BolbolRefMasterAudioProcessorEditor::mouseUp (const juce::MouseEvent& event
     if (clearReferenceButtonBounds.contains (event.getPosition()))
     {
         audioProcessor.clearReferenceTrack();
+        previewEqToggle.setToggleState (false, juce::dontSendNotification);
+        previewBypassToggle.setToggleState (false, juce::dontSendNotification);
         displayReferenceSpectrum.fill (0.0f);
         displayTargetPreviewSpectrum.fill (0.0f);
         repaint();

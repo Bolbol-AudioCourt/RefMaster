@@ -569,9 +569,17 @@ void BolbolRefMasterAudioProcessor::clearReferenceTrack()
     referenceTrackName.clear();
     referenceTrackInfo.clear();
     referenceTrackLoaded.store (false, std::memory_order_release);
+    previewEqEnabled.store (false, std::memory_order_release);
+    previewEqBypassed.store (false, std::memory_order_release);
 
     for (auto& smoother : previewBandGainSmoothers)
+    {
+        smoother.setCurrentAndTargetValue (0.0f);
         smoother.setTargetValue (0.0f);
+    }
+
+    for (auto& currentGain : currentPreviewBandGainsDb)
+        currentGain.store (0.0f, std::memory_order_release);
 }
 
 bool BolbolRefMasterAudioProcessor::hasReferenceTrack() const noexcept
