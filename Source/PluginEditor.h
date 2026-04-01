@@ -54,6 +54,7 @@ private:
     // access the processor object that created it.
     BolbolRefMasterAudioProcessor& audioProcessor;
     juce::Slider previewBlendSlider;
+    juce::Slider previewOutputGainSlider;
     juce::ToggleButton previewEqToggle;
     juce::ToggleButton previewBypassToggle;
     std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> displaySpectrum {};

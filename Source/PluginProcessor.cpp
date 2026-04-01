@@ -271,6 +271,7 @@ void BolbolRefMasterAudioProcessor::getStateInformation (juce::MemoryBlock& dest
     state.setProperty ("previewEqEnabled", isPreviewEqEnabled(), nullptr);
     state.setProperty ("previewEqBypassed", isPreviewEqBypassed(), nullptr);
     state.setProperty ("previewBlendAmount", getPreviewBlendAmount(), nullptr);
+    state.setProperty ("previewOutputGainDb", getPreviewOutputGainDb(), nullptr);
     state.setProperty ("referenceTrackPath", referenceTrackLoaded.load (std::memory_order_acquire) ? referenceTrackPath : juce::String(), nullptr);
 
     if (const auto xml = state.createXml())
@@ -289,6 +290,7 @@ void BolbolRefMasterAudioProcessor::setStateInformation (const void* data, int s
         setPreviewEqEnabled (static_cast<bool> (state.getProperty ("previewEqEnabled", false)));
         setPreviewEqBypassed (static_cast<bool> (state.getProperty ("previewEqBypassed", false)));
         setPreviewBlendAmount (static_cast<float> (static_cast<double> (state.getProperty ("previewBlendAmount", 0.5))));
+        setPreviewOutputGainDb (static_cast<float> (static_cast<double> (state.getProperty ("previewOutputGainDb", 0.0))));
 
         const auto referencePath = state.getProperty ("referenceTrackPath").toString();
 
@@ -446,6 +448,16 @@ float BolbolRefMasterAudioProcessor::getPreviewOutputTrimDb() const noexcept
 
     const auto averageGainDb = sum / static_cast<float> (bandAdjustments.size());
     return juce::jlimit (-3.0f, 3.0f, -averageGainDb * 0.35f);
+}
+
+void BolbolRefMasterAudioProcessor::setPreviewOutputGainDb (float newGainDb) noexcept
+{
+    previewOutputGainDb.store (juce::jlimit (-12.0f, 12.0f, newGainDb), std::memory_order_release);
+}
+
+float BolbolRefMasterAudioProcessor::getPreviewOutputGainDb() const noexcept
+{
+    return previewOutputGainDb.load (std::memory_order_acquire);
 }
 
 void BolbolRefMasterAudioProcessor::setPreviewBlendAmount (float newAmount) noexcept
@@ -720,7 +732,7 @@ void BolbolRefMasterAudioProcessor::applyPreviewEq (juce::AudioBuffer<float>& bu
     for (auto& previewFilter : previewFilters)
         previewFilter.process (context);
 
-    previewEqBuffer.applyGain (juce::Decibels::decibelsToGain (getPreviewOutputTrimDb()));
+    previewEqBuffer.applyGain (juce::Decibels::decibelsToGain (getPreviewOutputTrimDb() + getPreviewOutputGainDb()));
 
     for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
     {

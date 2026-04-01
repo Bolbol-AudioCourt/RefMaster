@@ -65,6 +65,20 @@ BolbolRefMasterAudioProcessorEditor::BolbolRefMasterAudioProcessorEditor (Bolbol
     };
     addAndMakeVisible (previewBlendSlider);
 
+    previewOutputGainSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+    previewOutputGainSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+    previewOutputGainSlider.setRange (-6.0, 6.0, 0.1);
+    previewOutputGainSlider.setValue (audioProcessor.getPreviewOutputGainDb(), juce::dontSendNotification);
+    previewOutputGainSlider.setColour (juce::Slider::trackColourId, successColour);
+    previewOutputGainSlider.setColour (juce::Slider::backgroundColourId, juce::Colour (0x22ffffff));
+    previewOutputGainSlider.setColour (juce::Slider::thumbColourId, textColour);
+    previewOutputGainSlider.onValueChange = [this]
+    {
+        audioProcessor.setPreviewOutputGainDb (static_cast<float> (previewOutputGainSlider.getValue()));
+        repaint();
+    };
+    addAndMakeVisible (previewOutputGainSlider);
+
     setSize (1024, 720);
     startTimerHz (30);
 }
@@ -364,6 +378,14 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
                 sliderLabelBounds,
                 juce::Justification::centredRight);
 
+    auto gainLabelBounds = blendPanel.removeFromBottom (32).reduced (14, 6);
+    g.setColour (mutedTextColour);
+    g.drawText ("Output trim", gainLabelBounds.removeFromLeft (90), juce::Justification::centredLeft);
+    g.setColour (textColour);
+    g.drawText (juce::String (previewOutputGainSlider.getValue(), 1) + " dB",
+                gainLabelBounds,
+                juce::Justification::centredRight);
+
     auto actionArea = sidebar.removeFromBottom (124).reduced (18, 14);
     auto applyButton = actionArea.removeFromTop (32);
     auto resetButton = actionArea.removeFromTop (32);
@@ -450,8 +472,11 @@ void BolbolRefMasterAudioProcessorEditor::resized()
 
     auto blendPanel = sidebarContent.removeFromTop (236);
     auto sliderBounds = blendPanel.removeFromBottom (32).reduced (14, 6);
+    auto gainBounds = blendPanel.removeFromBottom (32).reduced (14, 6);
     sliderBounds.removeFromLeft (92);
+    gainBounds.removeFromLeft (92);
     previewBlendSlider.setBounds (sliderBounds.withHeight (16).withY (sliderBounds.getY() + 8));
+    previewOutputGainSlider.setBounds (gainBounds.withHeight (16).withY (gainBounds.getY() + 8));
 }
 
 void BolbolRefMasterAudioProcessorEditor::timerCallback()

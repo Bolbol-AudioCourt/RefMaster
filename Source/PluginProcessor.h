@@ -85,6 +85,8 @@ public:
     void setPreviewEqEnabled (bool shouldBeEnabled) noexcept;
     bool isPreviewEqEnabled() const noexcept;
     bool isPreviewEqActive() const noexcept;
+    void setPreviewOutputGainDb (float newGainDb) noexcept;
+    float getPreviewOutputGainDb() const noexcept;
     void setPreviewBlendAmount (float newAmount) noexcept;
     float getPreviewBlendAmount() const noexcept;
     bool loadReferenceFile (const juce::File& file);
@@ -123,6 +125,7 @@ private:
     std::atomic<bool> previewEqBypassed { false };
     std::atomic<bool> previewEqEnabled { false };
     std::atomic<float> previewBlendAmount { 0.5f };
+    std::atomic<float> previewOutputGainDb { 0.0f };
     juce::AudioFormatManager audioFormatManager;
     juce::String referenceTrackName;
     juce::String referenceTrackInfo;
