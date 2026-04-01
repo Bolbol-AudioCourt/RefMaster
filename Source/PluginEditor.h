@@ -31,6 +31,7 @@ public:
 private:
     void timerCallback() override;
     void drawSpectrumAnalyzer (juce::Graphics& g, juce::Rectangle<int> bounds);
+    void drawBandSummary (juce::Graphics& g, juce::Rectangle<int> bounds) const;
     void drawLegend (juce::Graphics& g, juce::Rectangle<int> bounds) const;
     juce::Path createSpectrumPath (juce::Rectangle<float> bounds,
                                    const std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount>& spectrum) const;

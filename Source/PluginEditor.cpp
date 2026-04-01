@@ -26,6 +26,7 @@ const auto scaleLineColour = juce::Colour (0x18ffffff);
 const auto labelColour = juce::Colour (0x88d9d3ea);
 const auto successColour = juce::Colour (0xff5cb47a);
 const auto warningColour = juce::Colour (0xffdfb85f);
+const auto negativeColour = juce::Colour (0xffe58b8b);
 }
 
 //==============================================================================
@@ -105,8 +106,10 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     auto content = bounds.reduced (20, 18);
     auto sidebar = content.removeFromRight (260);
     auto analyzerArea = content;
+    auto summaryArea = analyzerArea.removeFromBottom (232);
 
     drawSpectrumAnalyzer (g, analyzerArea);
+    drawBandSummary (g, summaryArea.reduced (0, 10));
 
     g.setColour (panelColour);
     g.fillRoundedRectangle (sidebar.toFloat(), 14.0f);
@@ -349,6 +352,104 @@ void BolbolRefMasterAudioProcessorEditor::drawSpectrumAnalyzer (juce::Graphics& 
     g.setColour (mutedTextColour);
     g.drawText ("Dynamics", secondaryTab, juce::Justification::centred);
     g.drawText ("Stereo width", thirdTab, juce::Justification::centred);
+}
+
+void BolbolRefMasterAudioProcessorEditor::drawBandSummary (juce::Graphics& g, juce::Rectangle<int> bounds) const
+{
+    g.setColour (panelColour);
+    g.fillRoundedRectangle (bounds.toFloat(), 16.0f);
+    g.setColour (borderColour);
+    g.drawRoundedRectangle (bounds.toFloat(), 16.0f, 1.0f);
+
+    auto content = bounds.reduced (20, 16);
+    auto header = content.removeFromTop (24);
+
+    g.setColour (mutedTextColour);
+    g.setFont (juce::FontOptions (16.0f));
+    g.drawText ("COMPARISON SUMMARY", header, juce::Justification::centredLeft);
+
+    struct BandRow
+    {
+        const char* label;
+        float lowHz;
+        float highHz;
+        juce::Colour colour;
+    };
+
+    const std::array<BandRow, 5> bands {{
+        { "Sub bass (20-80)", 20.0f, 80.0f, accentColour },
+        { "Bass (80-250)", 80.0f, 250.0f, legendColour },
+        { "Mids (250-2k)", 250.0f, 2000.0f, successColour },
+        { "Hi mids (2k-8k)", 2000.0f, 8000.0f, warningColour },
+        { "Air (8k-20k)", 8000.0f, 20000.0f, negativeColour },
+    }};
+
+    const auto sampleRate = juce::jmax (audioProcessor.getSampleRate(), 44100.0);
+    const auto binWidth = static_cast<float> (sampleRate / BolbolRefMasterAudioProcessor::fftSize);
+    const auto hasReference = audioProcessor.hasReferenceTrack();
+
+    g.setFont (juce::FontOptions (15.0f));
+
+    for (const auto& band : bands)
+    {
+        auto row = content.removeFromTop (34);
+        auto labelBounds = row.removeFromLeft (220);
+        auto valueBounds = row.removeFromRight (74);
+        auto verdictBounds = row.removeFromRight (84);
+        auto meterBounds = row.reduced (6, 8);
+
+        g.setColour (textColour);
+        g.drawText (band.label, labelBounds, juce::Justification::centredLeft);
+
+        g.setColour (juce::Colour (0x1effffff));
+        g.fillRoundedRectangle (meterBounds.toFloat(), 3.0f);
+
+        float averageDeltaDb = 0.0f;
+
+        if (hasReference)
+        {
+            int count = 0;
+
+            for (int bin = 1; bin < BolbolRefMasterAudioProcessor::spectrumBinCount; ++bin)
+            {
+                const auto frequency = static_cast<float> (bin) * binWidth;
+
+                if (frequency < band.lowHz || frequency >= band.highHz)
+                    continue;
+
+                const auto inputDb = juce::Decibels::gainToDecibels (juce::jmax (displaySpectrum[static_cast<size_t> (bin)], 1.0e-5f));
+                const auto referenceDb = juce::Decibels::gainToDecibels (juce::jmax (displayReferenceSpectrum[static_cast<size_t> (bin)], 1.0e-5f));
+                averageDeltaDb += (referenceDb - inputDb);
+                ++count;
+            }
+
+            if (count > 0)
+                averageDeltaDb /= static_cast<float> (count);
+        }
+
+        const auto clampedDelta = juce::jlimit (-6.0f, 6.0f, averageDeltaDb);
+        const auto meterFillWidth = juce::jmap (std::abs (clampedDelta), 0.0f, 6.0f, 0.0f, static_cast<float> (meterBounds.getWidth()));
+        auto meterFill = meterBounds;
+        meterFill.setWidth (juce::roundToInt (meterFillWidth));
+
+        g.setColour (band.colour.withAlpha (0.9f));
+        g.fillRoundedRectangle (meterFill.toFloat(), 3.0f);
+
+        const auto verdict = ! hasReference ? "waiting"
+                            : (clampedDelta > 1.0f ? "boost"
+                            : (clampedDelta < -1.0f ? "cut" : "close"));
+
+        const auto verdictColour = ! hasReference ? mutedTextColour
+                                  : (juce::String (verdict) == "close" ? successColour
+                                  : (juce::String (verdict) == "boost" ? warningColour : negativeColour));
+
+        g.setColour (hasReference ? textColour : mutedTextColour);
+        g.drawText ((hasReference ? juce::String (clampedDelta, 1) : juce::String ("--")) + " dB",
+                    valueBounds, juce::Justification::centredRight);
+
+        g.setColour (verdictColour);
+        g.drawText (verdict, verdictBounds, juce::Justification::centredRight);
+    }
 }
 
 void BolbolRefMasterAudioProcessorEditor::drawLegend (juce::Graphics& g, juce::Rectangle<int> bounds) const
