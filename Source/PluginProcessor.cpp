@@ -558,7 +558,14 @@ bool BolbolRefMasterAudioProcessor::loadReferenceFile (const juce::File& file)
     auto reader = std::unique_ptr<juce::AudioFormatReader> (audioFormatManager.createReaderFor (file));
 
     if (reader == nullptr)
+    {
+        clearReferenceTrack();
+        referenceTrackName = file.getFileName();
+        referenceTrackInfo = "Failed to load reference";
+        referenceTrackPath = file.getFullPathName();
+        referenceLoadError.store (true, std::memory_order_release);
         return false;
+    }
 
     juce::dsp::FFT referenceFFT { fftOrder };
     juce::dsp::WindowingFunction<float> referenceWindow {
@@ -641,6 +648,7 @@ bool BolbolRefMasterAudioProcessor::loadReferenceFile (const juce::File& file)
                        + juce::String (reader->bitsPerSample)
                        + "bit";
     referenceTrackLoaded.store (true, std::memory_order_release);
+    referenceLoadError.store (false, std::memory_order_release);
     return true;
 }
 
@@ -654,6 +662,7 @@ void BolbolRefMasterAudioProcessor::clearReferenceTrack()
     referenceTrackInfo.clear();
     referenceTrackPath.clear();
     referenceTrackLoaded.store (false, std::memory_order_release);
+    referenceLoadError.store (false, std::memory_order_release);
     setPreviewEqEnabled (false);
     setPreviewEqBypassed (false);
     previewWetMixSmoother.setCurrentAndTargetValue (0.0f);
@@ -681,6 +690,11 @@ juce::String BolbolRefMasterAudioProcessor::getReferenceTrackName() const
 juce::String BolbolRefMasterAudioProcessor::getReferenceTrackInfo() const
 {
     return referenceTrackInfo;
+}
+
+bool BolbolRefMasterAudioProcessor::hasReferenceLoadError() const noexcept
+{
+    return referenceLoadError.load (std::memory_order_acquire);
 }
 
 void BolbolRefMasterAudioProcessor::pushNextSampleIntoFifo (float sample) noexcept

@@ -249,6 +249,7 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
 
     auto referenceText = referenceCard.reduced (14);
     const auto hasReference = audioProcessor.hasReferenceTrack();
+    const auto hasReferenceError = audioProcessor.hasReferenceLoadError();
     const auto correlation = hasReference ? calculateSpectrumCorrelation() : 0.0f;
     const auto previewTrimDb = hasReference ? audioProcessor.getPreviewOutputTrimDb() : 0.0f;
     const auto previewProcessingActive = audioProcessor.isPreviewEqActive();
@@ -263,7 +264,7 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     auto plusArea = referenceText.removeFromTop (34);
     g.setColour (juce::Colour (0x26ffffff));
     g.fillEllipse (plusArea.removeFromLeft (28).toFloat());
-    g.setColour (hasReference ? successColour : mutedTextColour);
+    g.setColour (hasReference ? successColour : (hasReferenceError ? negativeColour : mutedTextColour));
     g.drawText (hasReference ? juce::String (juce::CharPointer_UTF8 ("\xE2\x9C\x93")) : "+",
                 plusArea.withWidth (28),
                 juce::Justification::centredLeft);
@@ -271,10 +272,10 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     auto clearRow = referenceText.removeFromBottom (22);
     clearReferenceButtonBounds = clearRow.removeFromRight (84);
 
-    g.setColour (textColour);
+    g.setColour (hasReferenceError ? negativeColour : textColour);
     g.setFont (juce::FontOptions (17.0f));
     g.drawFittedText (referenceName, referenceText.removeFromTop (26), juce::Justification::centredLeft, 1);
-    g.setColour (mutedTextColour);
+    g.setColour (hasReferenceError ? negativeColour : mutedTextColour);
     g.setFont (juce::FontOptions (14.0f));
     g.drawFittedText (referenceInfo, referenceText.removeFromTop (20), juce::Justification::centredLeft, 1);
 
@@ -411,7 +412,9 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
                           ? (previewProcessingActive
                                  ? "Reference loaded. Preview EQ is active and the analyzer is showing processor-backed matching guidance."
                                  : "Reference loaded. Comparison is active. Enable Preview EQ to audition the current matching guidance.")
-                          : "Load or drop a reference track to unlock comparison, target preview, and Preview EQ controls.",
+                          : (hasReferenceError
+                                 ? "Reference load failed. Try a different audio file or reload the current one."
+                                 : "Load or drop a reference track to unlock comparison, target preview, and Preview EQ controls."),
                       statusArea,
                       juce::Justification::topLeft,
                       3);

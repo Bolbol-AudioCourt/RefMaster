@@ -100,6 +100,7 @@ public:
     bool hasReferenceTrack() const noexcept;
     juce::String getReferenceTrackName() const;
     juce::String getReferenceTrackInfo() const;
+    bool hasReferenceLoadError() const noexcept;
     juce::AudioProcessorValueTreeState parameters;
 
 private:
@@ -133,6 +134,7 @@ private:
     juce::String referenceTrackName;
     juce::String referenceTrackInfo;
     juce::String referenceTrackPath;
+    std::atomic<bool> referenceLoadError { false };
     double currentSampleRate = 44100.0;
     int fifoIndex = 0;
 
