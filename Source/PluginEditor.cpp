@@ -34,50 +34,39 @@ BolbolRefMasterAudioProcessorEditor::BolbolRefMasterAudioProcessorEditor (Bolbol
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
     previewEqToggle.setButtonText ("Preview EQ");
-    previewEqToggle.setToggleState (audioProcessor.isPreviewEqEnabled(), juce::dontSendNotification);
-    previewEqToggle.onClick = [this]
-    {
-        audioProcessor.setPreviewEqEnabled (previewEqToggle.getToggleState());
-        repaint();
-    };
     addAndMakeVisible (previewEqToggle);
 
     previewBypassToggle.setButtonText ("Bypass");
-    previewBypassToggle.setToggleState (audioProcessor.isPreviewEqBypassed(), juce::dontSendNotification);
-    previewBypassToggle.onClick = [this]
-    {
-        audioProcessor.setPreviewEqBypassed (previewBypassToggle.getToggleState());
-        repaint();
-    };
     addAndMakeVisible (previewBypassToggle);
 
     previewBlendSlider.setSliderStyle (juce::Slider::LinearHorizontal);
     previewBlendSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
-    previewBlendSlider.setRange (0.0, 100.0, 1.0);
-    previewBlendSlider.setValue (audioProcessor.getPreviewBlendAmount() * 100.0f, juce::dontSendNotification);
+    previewBlendSlider.setRange (0.0, 1.0, 0.01);
     previewBlendSlider.setColour (juce::Slider::trackColourId, accentColour);
     previewBlendSlider.setColour (juce::Slider::backgroundColourId, juce::Colour (0x22ffffff));
     previewBlendSlider.setColour (juce::Slider::thumbColourId, textColour);
-    previewBlendSlider.onValueChange = [this]
-    {
-        audioProcessor.setPreviewBlendAmount (static_cast<float> (previewBlendSlider.getValue() / 100.0));
-        repaint();
-    };
     addAndMakeVisible (previewBlendSlider);
 
     previewOutputGainSlider.setSliderStyle (juce::Slider::LinearHorizontal);
     previewOutputGainSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
     previewOutputGainSlider.setRange (-6.0, 6.0, 0.1);
-    previewOutputGainSlider.setValue (audioProcessor.getPreviewOutputGainDb(), juce::dontSendNotification);
     previewOutputGainSlider.setColour (juce::Slider::trackColourId, successColour);
     previewOutputGainSlider.setColour (juce::Slider::backgroundColourId, juce::Colour (0x22ffffff));
     previewOutputGainSlider.setColour (juce::Slider::thumbColourId, textColour);
-    previewOutputGainSlider.onValueChange = [this]
-    {
-        audioProcessor.setPreviewOutputGainDb (static_cast<float> (previewOutputGainSlider.getValue()));
-        repaint();
-    };
     addAndMakeVisible (previewOutputGainSlider);
+
+    previewEqToggleAttachment = std::make_unique<ButtonAttachment> (audioProcessor.parameters,
+                                                                    BolbolRefMasterAudioProcessor::previewEqEnabledParamID,
+                                                                    previewEqToggle);
+    previewBypassToggleAttachment = std::make_unique<ButtonAttachment> (audioProcessor.parameters,
+                                                                        BolbolRefMasterAudioProcessor::previewEqBypassedParamID,
+                                                                        previewBypassToggle);
+    previewBlendAttachment = std::make_unique<SliderAttachment> (audioProcessor.parameters,
+                                                                 BolbolRefMasterAudioProcessor::previewBlendAmountParamID,
+                                                                 previewBlendSlider);
+    previewOutputGainAttachment = std::make_unique<SliderAttachment> (audioProcessor.parameters,
+                                                                      BolbolRefMasterAudioProcessor::previewOutputGainParamID,
+                                                                      previewOutputGainSlider);
 
     setSize (1024, 720);
     startTimerHz (30);
@@ -133,7 +122,7 @@ void BolbolRefMasterAudioProcessorEditor::mouseUp (const juce::MouseEvent& event
         audioProcessor.setPreviewBlendAmount (0.5f);
         previewEqToggle.setToggleState (false, juce::dontSendNotification);
         previewBypassToggle.setToggleState (false, juce::dontSendNotification);
-        previewBlendSlider.setValue (50.0, juce::dontSendNotification);
+            previewBlendSlider.setValue (0.5, juce::dontSendNotification);
         displayReferenceSpectrum.fill (0.0f);
         displayTargetPreviewSpectrum.fill (0.0f);
         repaint();
@@ -335,7 +324,7 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("BLEND PER DIMENSION", blendContent.removeFromTop (24), juce::Justification::centredLeft);
 
     const std::array<std::pair<const char*, int>, 4> blendRows {{
-        { "EQ", juce::roundToInt (previewBlendSlider.getValue()) },
+        { "EQ", juce::roundToInt (previewBlendSlider.getValue() * 100.0) },
         { "Dynamics", 40 },
         { "Width", 50 },
         { "Loudness", 80 },
@@ -374,7 +363,7 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     g.setFont (juce::FontOptions (13.0f));
     g.drawText ("Preview mix", sliderLabelBounds.removeFromLeft (90), juce::Justification::centredLeft);
     g.setColour (textColour);
-    g.drawText (juce::String (juce::roundToInt (previewBlendSlider.getValue())) + "%",
+    g.drawText (juce::String (juce::roundToInt (previewBlendSlider.getValue() * 100.0)) + "%",
                 sliderLabelBounds,
                 juce::Justification::centredRight);
 

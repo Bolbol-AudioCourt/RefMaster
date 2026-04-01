@@ -35,6 +35,12 @@ public:
     static constexpr int previewDifferenceSmoothingRadius = 4;
     static constexpr float previewEqSmoothingTimeSeconds = 0.08f;
     static constexpr float previewEqMixSmoothingTimeSeconds = 0.03f;
+    static constexpr auto previewEqEnabledParamID = "previewEqEnabled";
+    static constexpr auto previewEqBypassedParamID = "previewEqBypassed";
+    static constexpr auto previewBlendAmountParamID = "previewBlendAmount";
+    static constexpr auto previewOutputGainParamID = "previewOutputGainDb";
+
+    static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
     //==============================================================================
     BolbolRefMasterAudioProcessor();
@@ -94,6 +100,7 @@ public:
     bool hasReferenceTrack() const noexcept;
     juce::String getReferenceTrackName() const;
     juce::String getReferenceTrackInfo() const;
+    juce::AudioProcessorValueTreeState parameters;
 
 private:
     using PreviewFilter = juce::dsp::ProcessorDuplicator<juce::dsp::IIR::Filter<float>,
@@ -122,10 +129,6 @@ private:
     std::atomic<int> activeSpectrumBufferIndex { 0 };
     std::atomic<int> activeReferenceSpectrumBufferIndex { 0 };
     std::atomic<bool> referenceTrackLoaded { false };
-    std::atomic<bool> previewEqBypassed { false };
-    std::atomic<bool> previewEqEnabled { false };
-    std::atomic<float> previewBlendAmount { 0.5f };
-    std::atomic<float> previewOutputGainDb { 0.0f };
     juce::AudioFormatManager audioFormatManager;
     juce::String referenceTrackName;
     juce::String referenceTrackInfo;

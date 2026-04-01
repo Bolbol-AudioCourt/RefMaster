@@ -32,6 +32,9 @@ public:
     void resized() override;
 
 private:
+    using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
+    using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
+
     void timerCallback() override;
     void drawSpectrumAnalyzer (juce::Graphics& g, juce::Rectangle<int> bounds);
     void drawBandSummary (juce::Graphics& g, juce::Rectangle<int> bounds) const;
@@ -57,6 +60,10 @@ private:
     juce::Slider previewOutputGainSlider;
     juce::ToggleButton previewEqToggle;
     juce::ToggleButton previewBypassToggle;
+    std::unique_ptr<SliderAttachment> previewBlendAttachment;
+    std::unique_ptr<SliderAttachment> previewOutputGainAttachment;
+    std::unique_ptr<ButtonAttachment> previewEqToggleAttachment;
+    std::unique_ptr<ButtonAttachment> previewBypassToggleAttachment;
     std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> displaySpectrum {};
     std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> displayReferenceSpectrum {};
     std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> displayTargetPreviewSpectrum {};

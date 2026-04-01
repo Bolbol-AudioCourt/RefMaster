@@ -54,6 +54,35 @@ void assignIirCoefficients (juce::dsp::IIR::Coefficients<float>& destination,
 {
     destination = source;
 }
+
+juce::AudioParameterBool* getBoolParameter (juce::AudioProcessorValueTreeState& parameters, const juce::String& id)
+{
+    return dynamic_cast<juce::AudioParameterBool*> (parameters.getParameter (id));
+}
+
+juce::AudioParameterFloat* getFloatParameter (juce::AudioProcessorValueTreeState& parameters, const juce::String& id)
+{
+    return dynamic_cast<juce::AudioParameterFloat*> (parameters.getParameter (id));
+}
+}
+
+//==============================================================================
+juce::AudioProcessorValueTreeState::ParameterLayout BolbolRefMasterAudioProcessor::createParameterLayout()
+{
+    juce::AudioProcessorValueTreeState::ParameterLayout layout;
+
+    layout.add (std::make_unique<juce::AudioParameterBool> (previewEqEnabledParamID, "Preview EQ Enabled", false));
+    layout.add (std::make_unique<juce::AudioParameterBool> (previewEqBypassedParamID, "Preview EQ Bypassed", false));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (previewBlendAmountParamID,
+                                                             "Preview Blend Amount",
+                                                             juce::NormalisableRange<float> (0.0f, 1.0f),
+                                                             0.5f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (previewOutputGainParamID,
+                                                             "Preview Output Gain",
+                                                             juce::NormalisableRange<float> (-12.0f, 12.0f),
+                                                             0.0f));
+
+    return layout;
 }
 
 //==============================================================================
@@ -68,6 +97,7 @@ BolbolRefMasterAudioProcessor::BolbolRefMasterAudioProcessor()
                      #endif
                        )
 #endif
+    , parameters (*this, nullptr, "PARAMETERS", createParameterLayout())
 {
     audioFormatManager.registerBasicFormats();
 }
@@ -264,11 +294,7 @@ juce::AudioProcessorEditor* BolbolRefMasterAudioProcessor::createEditor()
 //==============================================================================
 void BolbolRefMasterAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    juce::ValueTree state ("BolbolRefMasterState");
-    state.setProperty ("previewEqEnabled", isPreviewEqEnabled(), nullptr);
-    state.setProperty ("previewEqBypassed", isPreviewEqBypassed(), nullptr);
-    state.setProperty ("previewBlendAmount", getPreviewBlendAmount(), nullptr);
-    state.setProperty ("previewOutputGainDb", getPreviewOutputGainDb(), nullptr);
+    auto state = parameters.copyState();
     state.setProperty ("referenceTrackPath", referenceTrackLoaded.load (std::memory_order_acquire) ? referenceTrackPath : juce::String(), nullptr);
 
     if (const auto xml = state.createXml())
@@ -283,13 +309,9 @@ void BolbolRefMasterAudioProcessor::setStateInformation (const void* data, int s
     if (const auto xmlState = getXmlFromBinary (data, sizeInBytes))
     {
         juce::ValueTree state = juce::ValueTree::fromXml (*xmlState);
-
-        setPreviewEqEnabled (static_cast<bool> (state.getProperty ("previewEqEnabled", false)));
-        setPreviewEqBypassed (static_cast<bool> (state.getProperty ("previewEqBypassed", false)));
-        setPreviewBlendAmount (static_cast<float> (static_cast<double> (state.getProperty ("previewBlendAmount", 0.5))));
-        setPreviewOutputGainDb (static_cast<float> (static_cast<double> (state.getProperty ("previewOutputGainDb", 0.0))));
-
         const auto referencePath = state.getProperty ("referenceTrackPath").toString();
+        state.removeProperty ("referenceTrackPath", nullptr);
+        parameters.replaceState (state);
 
         if (referencePath.isNotEmpty())
             loadReferenceFile (juce::File (referencePath));
@@ -449,32 +471,44 @@ float BolbolRefMasterAudioProcessor::getPreviewOutputTrimDb() const noexcept
 
 void BolbolRefMasterAudioProcessor::setPreviewOutputGainDb (float newGainDb) noexcept
 {
-    previewOutputGainDb.store (juce::jlimit (-12.0f, 12.0f, newGainDb), std::memory_order_release);
+    if (auto* parameter = getFloatParameter (parameters, previewOutputGainParamID))
+        parameter->setValueNotifyingHost (parameter->convertTo0to1 (juce::jlimit (-12.0f, 12.0f, newGainDb)));
 }
 
 float BolbolRefMasterAudioProcessor::getPreviewOutputGainDb() const noexcept
 {
-    return previewOutputGainDb.load (std::memory_order_acquire);
+    if (const auto* value = parameters.getRawParameterValue (previewOutputGainParamID))
+        return value->load();
+
+    return 0.0f;
 }
 
 void BolbolRefMasterAudioProcessor::setPreviewBlendAmount (float newAmount) noexcept
 {
-    previewBlendAmount.store (juce::jlimit (0.0f, 1.0f, newAmount), std::memory_order_release);
+    if (auto* parameter = getFloatParameter (parameters, previewBlendAmountParamID))
+        parameter->setValueNotifyingHost (parameter->convertTo0to1 (juce::jlimit (0.0f, 1.0f, newAmount)));
 }
 
 float BolbolRefMasterAudioProcessor::getPreviewBlendAmount() const noexcept
 {
-    return previewBlendAmount.load (std::memory_order_acquire);
+    if (const auto* value = parameters.getRawParameterValue (previewBlendAmountParamID))
+        return value->load();
+
+    return 0.5f;
 }
 
 void BolbolRefMasterAudioProcessor::setPreviewEqEnabled (bool shouldBeEnabled) noexcept
 {
-    previewEqEnabled.store (shouldBeEnabled, std::memory_order_release);
+    if (auto* parameter = getBoolParameter (parameters, previewEqEnabledParamID))
+        parameter->setValueNotifyingHost (shouldBeEnabled ? 1.0f : 0.0f);
 }
 
 bool BolbolRefMasterAudioProcessor::isPreviewEqEnabled() const noexcept
 {
-    return previewEqEnabled.load (std::memory_order_acquire);
+    if (const auto* value = parameters.getRawParameterValue (previewEqEnabledParamID))
+        return value->load() >= 0.5f;
+
+    return false;
 }
 
 bool BolbolRefMasterAudioProcessor::isPreviewEqActive() const noexcept
@@ -487,12 +521,16 @@ bool BolbolRefMasterAudioProcessor::isPreviewEqActive() const noexcept
 
 void BolbolRefMasterAudioProcessor::setPreviewEqBypassed (bool shouldBeBypassed) noexcept
 {
-    previewEqBypassed.store (shouldBeBypassed, std::memory_order_release);
+    if (auto* parameter = getBoolParameter (parameters, previewEqBypassedParamID))
+        parameter->setValueNotifyingHost (shouldBeBypassed ? 1.0f : 0.0f);
 }
 
 bool BolbolRefMasterAudioProcessor::isPreviewEqBypassed() const noexcept
 {
-    return previewEqBypassed.load (std::memory_order_acquire);
+    if (const auto* value = parameters.getRawParameterValue (previewEqBypassedParamID))
+        return value->load() >= 0.5f;
+
+    return false;
 }
 
 bool BolbolRefMasterAudioProcessor::loadReferenceFile (const juce::File& file)
@@ -596,8 +634,8 @@ void BolbolRefMasterAudioProcessor::clearReferenceTrack()
     referenceTrackInfo.clear();
     referenceTrackPath.clear();
     referenceTrackLoaded.store (false, std::memory_order_release);
-    previewEqEnabled.store (false, std::memory_order_release);
-    previewEqBypassed.store (false, std::memory_order_release);
+    setPreviewEqEnabled (false);
+    setPreviewEqBypassed (false);
     previewWetMixSmoother.setCurrentAndTargetValue (0.0f);
 
     for (auto& smoother : previewBandGainSmoothers)

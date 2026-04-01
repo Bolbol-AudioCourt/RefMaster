@@ -97,6 +97,8 @@ static RunStats runProcessorOnFile (const juce::File& inputFile,
 
 int main (int argc, char* argv[])
 {
+    juce::ScopedJuceInitialiser_GUI juceInit;
+
     if (argc < 2)
     {
         std::cerr << "Usage: ProcessorSmokeMain <audio-file>\n";
