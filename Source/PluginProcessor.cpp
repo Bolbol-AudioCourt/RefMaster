@@ -263,10 +263,14 @@ juce::AudioProcessorEditor* BolbolRefMasterAudioProcessor::createEditor()
 //==============================================================================
 void BolbolRefMasterAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    juce::MemoryOutputStream stream (destData, false);
-    stream.writeBool (isPreviewEqEnabled());
-    stream.writeBool (isPreviewEqBypassed());
-    stream.writeFloat (getPreviewBlendAmount());
+    juce::ValueTree state ("BolbolRefMasterState");
+    state.setProperty ("previewEqEnabled", isPreviewEqEnabled(), nullptr);
+    state.setProperty ("previewEqBypassed", isPreviewEqBypassed(), nullptr);
+    state.setProperty ("previewBlendAmount", getPreviewBlendAmount(), nullptr);
+    state.setProperty ("referenceTrackPath", referenceTrackLoaded.load (std::memory_order_acquire) ? referenceTrackPath : juce::String(), nullptr);
+
+    if (const auto xml = state.createXml())
+        copyXmlToBinary (*xml, destData);
 }
 
 void BolbolRefMasterAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
@@ -274,15 +278,23 @@ void BolbolRefMasterAudioProcessor::setStateInformation (const void* data, int s
     if (data == nullptr || sizeInBytes < 1)
         return;
 
-    juce::MemoryInputStream stream (data, static_cast<size_t> (sizeInBytes), false);
-    if (sizeInBytes >= static_cast<int> (sizeof (bool) + sizeof (bool) + sizeof (float)))
+    if (const auto xmlState = getXmlFromBinary (data, sizeInBytes))
     {
-        setPreviewEqEnabled (stream.readBool());
-        setPreviewEqBypassed (stream.readBool());
-        setPreviewBlendAmount (stream.readFloat());
+        juce::ValueTree state = juce::ValueTree::fromXml (*xmlState);
+
+        setPreviewEqEnabled (static_cast<bool> (state.getProperty ("previewEqEnabled", false)));
+        setPreviewEqBypassed (static_cast<bool> (state.getProperty ("previewEqBypassed", false)));
+        setPreviewBlendAmount (static_cast<float> (static_cast<double> (state.getProperty ("previewBlendAmount", 0.5))));
+
+        const auto referencePath = state.getProperty ("referenceTrackPath").toString();
+
+        if (referencePath.isNotEmpty())
+            loadReferenceFile (juce::File (referencePath));
     }
     else
     {
+        juce::MemoryInputStream stream (data, static_cast<size_t> (sizeInBytes), false);
+
         setPreviewBlendAmount (stream.readFloat());
     }
 }
@@ -550,6 +562,7 @@ bool BolbolRefMasterAudioProcessor::loadReferenceFile (const juce::File& file)
 
     const auto durationInSeconds = static_cast<double> (reader->lengthInSamples) / reader->sampleRate;
     referenceTrackName = file.getFileName();
+    referenceTrackPath = file.getFullPathName();
     referenceTrackInfo = formatReferenceDuration (durationInSeconds)
                        + " · "
                        + juce::String (reader->sampleRate / 1000.0, 1)
@@ -568,6 +581,7 @@ void BolbolRefMasterAudioProcessor::clearReferenceTrack()
     activeReferenceSpectrumBufferIndex.store (0, std::memory_order_release);
     referenceTrackName.clear();
     referenceTrackInfo.clear();
+    referenceTrackPath.clear();
     referenceTrackLoaded.store (false, std::memory_order_release);
     previewEqEnabled.store (false, std::memory_order_release);
     previewEqBypassed.store (false, std::memory_order_release);

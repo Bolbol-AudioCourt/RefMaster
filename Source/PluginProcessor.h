@@ -123,6 +123,7 @@ private:
     juce::AudioFormatManager audioFormatManager;
     juce::String referenceTrackName;
     juce::String referenceTrackInfo;
+    juce::String referenceTrackPath;
     double currentSampleRate = 44100.0;
     int fifoIndex = 0;
 
