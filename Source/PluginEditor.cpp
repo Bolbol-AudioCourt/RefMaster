@@ -357,7 +357,7 @@ void BolbolRefMasterAudioProcessorEditor::timerCallback()
         {
             const auto inputDb = juce::Decibels::gainToDecibels (juce::jmax (displaySpectrum[i], 1.0e-5f));
             const auto referenceDb = juce::Decibels::gainToDecibels (juce::jmax (displayReferenceSpectrum[i], 1.0e-5f));
-            const auto targetDb = inputDb + ((referenceDb - inputDb) * 0.5f);
+            const auto targetDb = inputDb + ((referenceDb - inputDb) * audioProcessor.getPreviewBlendAmount());
             const auto targetMagnitude = juce::Decibels::decibelsToGain (targetDb);
             displayTargetPreviewSpectrum[i] = juce::jmax (targetMagnitude, displayTargetPreviewSpectrum[i] * 0.88f);
         }
