@@ -42,6 +42,15 @@ BolbolRefMasterAudioProcessorEditor::BolbolRefMasterAudioProcessorEditor (Bolbol
     };
     addAndMakeVisible (previewEqToggle);
 
+    previewBypassToggle.setButtonText ("Bypass");
+    previewBypassToggle.setToggleState (audioProcessor.isPreviewEqBypassed(), juce::dontSendNotification);
+    previewBypassToggle.onClick = [this]
+    {
+        audioProcessor.setPreviewEqBypassed (previewBypassToggle.getToggleState());
+        repaint();
+    };
+    addAndMakeVisible (previewBypassToggle);
+
     previewBlendSlider.setSliderStyle (juce::Slider::LinearHorizontal);
     previewBlendSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
     previewBlendSlider.setRange (0.0, 100.0, 1.0);
@@ -152,7 +161,9 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     g.fillRoundedRectangle (bypassBounds.toFloat(), 10.0f);
     g.setColour (mutedTextColour);
     g.drawRoundedRectangle (bypassBounds.toFloat(), 10.0f, 1.0f);
-    g.drawText ("BYPASS", bypassBounds, juce::Justification::centred);
+    g.drawText (audioProcessor.isPreviewEqBypassed() ? "PREVIEW OFF" : "BYPASS",
+                bypassBounds,
+                juce::Justification::centred);
 
     g.setColour (mutedTextColour);
     g.setFont (juce::FontOptions (13.0f));
@@ -176,6 +187,7 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     auto referenceCard = sidebarContent.removeFromTop (146);
     referenceCardBounds = referenceCard;
     previewEqToggle.setEnabled (audioProcessor.hasReferenceTrack());
+    previewBypassToggle.setEnabled (audioProcessor.hasReferenceTrack() && audioProcessor.isPreviewEqEnabled());
     g.setColour (juce::Colour (0xff15161c));
     g.fillRoundedRectangle (referenceCard.toFloat(), 12.0f);
     g.setColour (borderColour);
@@ -186,6 +198,7 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     const auto correlation = hasReference ? calculateSpectrumCorrelation() : 0.0f;
     const auto previewProcessingActive = hasReference
                                       && audioProcessor.isPreviewEqEnabled()
+                                      && ! audioProcessor.isPreviewEqBypassed()
                                       && audioProcessor.getPreviewBlendAmount() > 0.001f;
     const auto referenceName = hasReference ? audioProcessor.getReferenceTrackName()
                                             : juce::String ("Click to load reference");
@@ -356,6 +369,8 @@ void BolbolRefMasterAudioProcessorEditor::resized()
     sidebarContent.removeFromTop (34);
     sidebarContent.removeFromTop (14);
     auto toggleArea = sidebarContent.removeFromTop (26);
+    auto bypassBounds = toggleArea.removeFromRight (90);
+    previewBypassToggle.setBounds (bypassBounds);
     previewEqToggle.setBounds (toggleArea.removeFromRight (120));
 
     auto blendPanel = sidebarContent.removeFromTop (236);

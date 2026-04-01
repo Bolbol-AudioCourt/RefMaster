@@ -265,6 +265,7 @@ void BolbolRefMasterAudioProcessor::getStateInformation (juce::MemoryBlock& dest
 {
     juce::MemoryOutputStream stream (destData, false);
     stream.writeBool (isPreviewEqEnabled());
+    stream.writeBool (isPreviewEqBypassed());
     stream.writeFloat (getPreviewBlendAmount());
 }
 
@@ -274,9 +275,10 @@ void BolbolRefMasterAudioProcessor::setStateInformation (const void* data, int s
         return;
 
     juce::MemoryInputStream stream (data, static_cast<size_t> (sizeInBytes), false);
-    if (sizeInBytes >= static_cast<int> (sizeof (bool) + sizeof (float)))
+    if (sizeInBytes >= static_cast<int> (sizeof (bool) + sizeof (bool) + sizeof (float)))
     {
         setPreviewEqEnabled (stream.readBool());
+        setPreviewEqBypassed (stream.readBool());
         setPreviewBlendAmount (stream.readFloat());
     }
     else
@@ -439,6 +441,16 @@ bool BolbolRefMasterAudioProcessor::isPreviewEqEnabled() const noexcept
 {
     return referenceTrackLoaded.load (std::memory_order_acquire)
         && previewEqEnabled.load (std::memory_order_acquire);
+}
+
+void BolbolRefMasterAudioProcessor::setPreviewEqBypassed (bool shouldBeBypassed) noexcept
+{
+    previewEqBypassed.store (shouldBeBypassed, std::memory_order_release);
+}
+
+bool BolbolRefMasterAudioProcessor::isPreviewEqBypassed() const noexcept
+{
+    return previewEqBypassed.load (std::memory_order_acquire);
 }
 
 bool BolbolRefMasterAudioProcessor::loadReferenceFile (const juce::File& file)
@@ -644,7 +656,7 @@ void BolbolRefMasterAudioProcessor::updatePreviewFilterCoefficients (int numSamp
 
 void BolbolRefMasterAudioProcessor::applyPreviewEq (juce::AudioBuffer<float>& buffer) noexcept
 {
-    if (! isPreviewEqEnabled())
+    if (! isPreviewEqEnabled() || isPreviewEqBypassed())
         return;
 
     juce::dsp::AudioBlock<float> block (buffer);

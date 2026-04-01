@@ -78,6 +78,8 @@ public:
     std::array<float, previewBandCount> getPreviewBandAdjustmentsDb() const noexcept;
     std::array<PreviewMatchPoint, previewBandCount> getPreviewMatchPoints() const noexcept;
     float getPreviewOutputTrimDb() const noexcept;
+    void setPreviewEqBypassed (bool shouldBeBypassed) noexcept;
+    bool isPreviewEqBypassed() const noexcept;
     void setPreviewEqEnabled (bool shouldBeEnabled) noexcept;
     bool isPreviewEqEnabled() const noexcept;
     void setPreviewBlendAmount (float newAmount) noexcept;
@@ -112,6 +114,7 @@ private:
     std::atomic<int> activeSpectrumBufferIndex { 0 };
     std::atomic<int> activeReferenceSpectrumBufferIndex { 0 };
     std::atomic<bool> referenceTrackLoaded { false };
+    std::atomic<bool> previewEqBypassed { false };
     std::atomic<bool> previewEqEnabled { false };
     std::atomic<float> previewBlendAmount { 0.5f };
     juce::AudioFormatManager audioFormatManager;

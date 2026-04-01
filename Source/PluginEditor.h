@@ -54,6 +54,7 @@ private:
     BolbolRefMasterAudioProcessor& audioProcessor;
     juce::Slider previewBlendSlider;
     juce::ToggleButton previewEqToggle;
+    juce::ToggleButton previewBypassToggle;
     std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> displaySpectrum {};
     std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> displayReferenceSpectrum {};
     std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> displayTargetPreviewSpectrum {};
