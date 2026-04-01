@@ -422,6 +422,7 @@ BolbolRefMasterAudioProcessor::getPreviewMatchPoints() const noexcept
 {
     std::array<PreviewMatchPoint, previewBandCount> matchPoints {};
     const auto bandAdjustments = getPreviewBandAdjustmentsDb();
+    const auto differenceSpectrum = getPreviewDifferenceSpectrumDb();
 
     constexpr std::array<std::pair<float, float>, previewBandCount> ranges {{
         { 20.0f, 80.0f },
@@ -434,8 +435,27 @@ BolbolRefMasterAudioProcessor::getPreviewMatchPoints() const noexcept
     for (size_t bandIndex = 0; bandIndex < ranges.size(); ++bandIndex)
     {
         const auto [lowHz, highHz] = ranges[bandIndex];
-        const auto centreFrequency = std::sqrt (lowHz * highHz);
+        const auto sampleRate = juce::jmax (getSampleRate(), 44100.0);
+        const auto binWidth = static_cast<float> (sampleRate / fftSize);
         const auto octaveSpan = std::log2 (highHz / lowHz);
+        float strongestMagnitude = 0.0f;
+        float centreFrequency = std::sqrt (lowHz * highHz);
+
+        for (int bin = 1; bin < spectrumBinCount; ++bin)
+        {
+            const auto frequency = static_cast<float> (bin) * binWidth;
+
+            if (frequency < lowHz || frequency >= highHz)
+                continue;
+
+            const auto magnitude = std::abs (differenceSpectrum[static_cast<size_t> (bin)]);
+
+            if (magnitude > strongestMagnitude)
+            {
+                strongestMagnitude = magnitude;
+                centreFrequency = frequency;
+            }
+        }
 
         matchPoints[bandIndex] = PreviewMatchPoint {
             centreFrequency,
