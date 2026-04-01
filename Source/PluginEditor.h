@@ -32,13 +32,15 @@ private:
     void timerCallback() override;
     void drawSpectrumAnalyzer (juce::Graphics& g, juce::Rectangle<int> bounds);
     void drawLegend (juce::Graphics& g, juce::Rectangle<int> bounds) const;
-    juce::Path createSpectrumPath (juce::Rectangle<float> bounds) const;
+    juce::Path createSpectrumPath (juce::Rectangle<float> bounds,
+                                   const std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount>& spectrum) const;
     void drawSpectrumScale (juce::Graphics& g, juce::Rectangle<float> bounds) const;
 
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     BolbolRefMasterAudioProcessor& audioProcessor;
     std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> displaySpectrum {};
+    std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> displayReferenceSpectrum {};
     std::unique_ptr<juce::FileChooser> referenceFileChooser;
     juce::Rectangle<int> referenceCardBounds;
 

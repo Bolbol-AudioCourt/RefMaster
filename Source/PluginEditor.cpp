@@ -248,9 +248,13 @@ void BolbolRefMasterAudioProcessorEditor::resized()
 void BolbolRefMasterAudioProcessorEditor::timerCallback()
 {
     const auto latestSpectrum = audioProcessor.getLatestMagnitudeSpectrum();
+    const auto latestReferenceSpectrum = audioProcessor.getReferenceMagnitudeSpectrum();
 
     for (size_t i = 0; i < displaySpectrum.size(); ++i)
+    {
         displaySpectrum[i] = juce::jmax (latestSpectrum[i], displaySpectrum[i] * 0.82f);
+        displayReferenceSpectrum[i] = juce::jmax (latestReferenceSpectrum[i], displayReferenceSpectrum[i] * 0.9f);
+    }
 
     repaint();
 }
@@ -284,7 +288,7 @@ void BolbolRefMasterAudioProcessorEditor::drawSpectrumAnalyzer (juce::Graphics& 
 
     drawSpectrumScale (g, plotBounds);
 
-    auto spectrumPath = createSpectrumPath (plotBounds);
+    auto spectrumPath = createSpectrumPath (plotBounds, displaySpectrum);
 
     juce::Path fillPath (spectrumPath);
     fillPath.lineTo (graphBounds.getRight() - 14.0f, graphBounds.getBottom() - 12.0f);
@@ -298,6 +302,13 @@ void BolbolRefMasterAudioProcessorEditor::drawSpectrumAnalyzer (juce::Graphics& 
                                    false);
     g.setGradientFill (gradient);
     g.fillPath (fillPath);
+
+    if (audioProcessor.hasReferenceTrack())
+    {
+        auto referencePath = createSpectrumPath (plotBounds, displayReferenceSpectrum);
+        g.setColour (legendColour);
+        g.strokePath (referencePath, juce::PathStrokeType (2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    }
 
     g.setColour (accentColour);
     g.strokePath (spectrumPath, juce::PathStrokeType (2.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
@@ -334,15 +345,24 @@ void BolbolRefMasterAudioProcessorEditor::drawLegend (juce::Graphics& g, juce::R
     g.setFont (juce::FontOptions (15.0f));
     g.drawText ("Input spectrum", itemBounds, juce::Justification::centredLeft);
 
-    auto secondaryBounds = bounds.removeFromLeft (220);
+    auto secondaryBounds = bounds.removeFromLeft (200);
     auto secondaryLine = secondaryBounds.removeFromLeft (28).toFloat().withTrimmedTop (12.0f).withHeight (3.0f);
     g.setColour (legendColour);
     g.fillRoundedRectangle (secondaryLine, 1.5f);
     g.setColour (mutedTextColour);
-    g.drawText ("UI guide inspired by docs", secondaryBounds, juce::Justification::centredLeft);
+    g.drawText ("Reference", secondaryBounds, juce::Justification::centredLeft);
+
+    auto tertiaryBounds = bounds.removeFromLeft (220);
+    auto tertiaryLine = tertiaryBounds.removeFromLeft (28).toFloat().withTrimmedTop (12.0f).withHeight (3.0f);
+    g.setColour (warningColour);
+    g.fillRoundedRectangle (tertiaryLine, 1.5f);
+    g.setColour (mutedTextColour);
+    g.drawText ("UI guide inspired by docs", tertiaryBounds, juce::Justification::centredLeft);
 }
 
-juce::Path BolbolRefMasterAudioProcessorEditor::createSpectrumPath (juce::Rectangle<float> bounds) const
+juce::Path BolbolRefMasterAudioProcessorEditor::createSpectrumPath (
+    juce::Rectangle<float> bounds,
+    const std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount>& spectrum) const
 {
     juce::Path path;
 
@@ -369,7 +389,7 @@ juce::Path BolbolRefMasterAudioProcessorEditor::createSpectrumPath (juce::Rectan
         if (frequency < minFrequency || frequency > maxFrequency)
             continue;
 
-        const auto magnitude = juce::jmax (displaySpectrum[static_cast<size_t> (bin)], 1.0e-5f);
+        const auto magnitude = juce::jmax (spectrum[static_cast<size_t> (bin)], 1.0e-5f);
         const auto decibels = juce::Decibels::gainToDecibels (magnitude);
         const auto y = juce::jmap (juce::jlimit (minDecibels, maxDecibels, decibels),
                                    minDecibels, maxDecibels,
