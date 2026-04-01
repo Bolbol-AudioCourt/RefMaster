@@ -99,6 +99,20 @@ void BolbolRefMasterAudioProcessorEditor::filesDropped (const juce::StringArray&
 //==============================================================================
 void BolbolRefMasterAudioProcessorEditor::mouseUp (const juce::MouseEvent& event)
 {
+    if (simpleTabBounds.contains (event.getPosition()))
+    {
+        showDetailedComparison = false;
+        repaint();
+        return;
+    }
+
+    if (detailedTabBounds.contains (event.getPosition()))
+    {
+        showDetailedComparison = true;
+        repaint();
+        return;
+    }
+
     if (clearReferenceButtonBounds.contains (event.getPosition()))
     {
         audioProcessor.clearReferenceTrack();
@@ -175,7 +189,11 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     auto summaryArea = analyzerArea.removeFromBottom (232);
 
     drawSpectrumAnalyzer (g, analyzerArea);
-    drawBandSummary (g, summaryArea.reduced (0, 10));
+
+    if (showDetailedComparison)
+        drawDetailedSummary (g, summaryArea.reduced (0, 10));
+    else
+        drawBandSummary (g, summaryArea.reduced (0, 10));
 
     g.setColour (panelColour);
     g.fillRoundedRectangle (sidebar.toFloat(), 14.0f);
@@ -245,13 +263,17 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     auto modeTabs = sidebarContent.removeFromTop (34);
     auto simpleTab = modeTabs.removeFromLeft (modeTabs.getWidth() / 2);
     auto detailedTab = modeTabs;
-    g.setColour (accentColour.withAlpha (0.18f));
+    simpleTabBounds = simpleTab;
+    detailedTabBounds = detailedTab;
+
+    g.setColour (! showDetailedComparison ? accentColour.withAlpha (0.18f) : juce::Colour (0x18ffffff));
     g.fillRoundedRectangle (simpleTab.toFloat(), 8.0f);
-    g.setColour (accentColour);
+    g.setColour (! showDetailedComparison ? accentColour : mutedTextColour);
     g.drawText ("Simple", simpleTab, juce::Justification::centred);
-    g.setColour (juce::Colour (0x18ffffff));
+
+    g.setColour (showDetailedComparison ? accentColour.withAlpha (0.18f) : juce::Colour (0x18ffffff));
     g.fillRoundedRectangle (detailedTab.toFloat(), 8.0f);
-    g.setColour (mutedTextColour);
+    g.setColour (showDetailedComparison ? accentColour : mutedTextColour);
     g.drawText ("Detailed", detailedTab, juce::Justification::centred);
 
     sidebarContent.removeFromTop (14);
@@ -575,6 +597,65 @@ void BolbolRefMasterAudioProcessorEditor::drawBandSummary (juce::Graphics& g, ju
 
         g.setColour (verdictColour);
         g.drawText (verdict, verdictBounds, juce::Justification::centredRight);
+    }
+}
+
+void BolbolRefMasterAudioProcessorEditor::drawDetailedSummary (juce::Graphics& g, juce::Rectangle<int> bounds) const
+{
+    g.setColour (panelColour);
+    g.fillRoundedRectangle (bounds.toFloat(), 16.0f);
+    g.setColour (borderColour);
+    g.drawRoundedRectangle (bounds.toFloat(), 16.0f, 1.0f);
+
+    auto content = bounds.reduced (20, 16);
+    auto header = content.removeFromTop (24);
+
+    g.setColour (mutedTextColour);
+    g.setFont (juce::FontOptions (16.0f));
+    g.drawText ("DETAILED PREVIEW POINTS", header, juce::Justification::centredLeft);
+
+    const auto hasReference = audioProcessor.hasReferenceTrack();
+    const auto previewMatchPoints = audioProcessor.getPreviewMatchPoints();
+
+    g.setFont (juce::FontOptions (14.0f));
+    g.setColour (labelColour);
+    auto labels = content.removeFromTop (22);
+    labels.removeFromLeft (20);
+    g.drawText ("Frequency", labels.removeFromLeft (150), juce::Justification::centredLeft);
+    g.drawText ("Gain", labels.removeFromLeft (80), juce::Justification::centredLeft);
+    g.drawText ("Q", labels.removeFromLeft (60), juce::Justification::centredLeft);
+    g.drawText ("Status", labels, juce::Justification::centredLeft);
+
+    for (const auto& matchPoint : previewMatchPoints)
+    {
+        auto row = content.removeFromTop (30);
+        auto dotBounds = row.removeFromLeft (14).reduced (2);
+        auto frequencyBounds = row.removeFromLeft (156);
+        auto gainBounds = row.removeFromLeft (80);
+        auto qBounds = row.removeFromLeft (60);
+        auto statusBounds = row;
+
+        g.setColour (warningColour);
+        g.fillEllipse (dotBounds.toFloat());
+
+        const auto frequencyText = matchPoint.frequencyHz >= 1000.0f
+                                     ? juce::String (matchPoint.frequencyHz / 1000.0f, 1) + " kHz"
+                                     : juce::String (juce::roundToInt (matchPoint.frequencyHz)) + " Hz";
+        const auto gainText = hasReference ? juce::String (matchPoint.gainDb, 1) + " dB" : juce::String ("--");
+        const auto qText = juce::String (matchPoint.q, 2);
+        const auto statusText = ! hasReference ? "waiting"
+                               : (matchPoint.gainDb > 1.0f ? "boost preview"
+                               : (matchPoint.gainDb < -1.0f ? "cut preview" : "close"));
+        const auto statusColour = ! hasReference ? mutedTextColour
+                                 : (statusText == "close" ? successColour
+                                 : (matchPoint.gainDb > 0.0f ? warningColour : negativeColour));
+
+        g.setColour (textColour);
+        g.drawText (frequencyText, frequencyBounds, juce::Justification::centredLeft);
+        g.drawText (gainText, gainBounds, juce::Justification::centredLeft);
+        g.drawText (qText, qBounds, juce::Justification::centredLeft);
+        g.setColour (statusColour);
+        g.drawText (statusText, statusBounds, juce::Justification::centredLeft);
     }
 }
 

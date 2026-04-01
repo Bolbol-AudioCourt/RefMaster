@@ -35,6 +35,7 @@ private:
     void timerCallback() override;
     void drawSpectrumAnalyzer (juce::Graphics& g, juce::Rectangle<int> bounds);
     void drawBandSummary (juce::Graphics& g, juce::Rectangle<int> bounds) const;
+    void drawDetailedSummary (juce::Graphics& g, juce::Rectangle<int> bounds) const;
     void drawLegend (juce::Graphics& g, juce::Rectangle<int> bounds) const;
     juce::Path createSpectrumPath (juce::Rectangle<float> bounds,
                                    const std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount>& spectrum) const;
@@ -61,6 +62,9 @@ private:
     std::unique_ptr<juce::FileChooser> referenceFileChooser;
     juce::Rectangle<int> referenceCardBounds;
     juce::Rectangle<int> clearReferenceButtonBounds;
+    juce::Rectangle<int> simpleTabBounds;
+    juce::Rectangle<int> detailedTabBounds;
+    bool showDetailedComparison = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BolbolRefMasterAudioProcessorEditor)
 };
