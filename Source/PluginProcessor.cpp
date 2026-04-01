@@ -52,10 +52,7 @@ float calculateSpectrumAverageDb (
 void assignIirCoefficients (juce::dsp::IIR::Coefficients<float>& destination,
                             const std::array<float, 6>& source) noexcept
 {
-    auto* raw = destination.getRawCoefficients();
-
-    for (size_t i = 0; i < source.size(); ++i)
-        raw[i] = source[i];
+    destination = source;
 }
 }
 
@@ -713,7 +710,7 @@ void BolbolRefMasterAudioProcessor::updatePreviewFilterCoefficients (int numSamp
 
 void BolbolRefMasterAudioProcessor::applyPreviewEq (juce::AudioBuffer<float>& buffer) noexcept
 {
-    const auto targetWetMix = (hasReferenceTrack() && isPreviewEqEnabled() && ! isPreviewEqBypassed()) ? 1.0f : 0.0f;
+    const auto targetWetMix = isPreviewEqActive() ? 1.0f : 0.0f;
     previewWetMixSmoother.setTargetValue (targetWetMix);
 
     if (previewWetMixSmoother.getCurrentValue() <= 0.0f && targetWetMix <= 0.0f)
