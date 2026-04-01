@@ -387,6 +387,7 @@ void BolbolRefMasterAudioProcessorEditor::drawSpectrumAnalyzer (juce::Graphics& 
         auto targetPreviewPath = createSpectrumPath (plotBounds, displayTargetPreviewSpectrum);
         g.setColour (warningColour);
         g.strokePath (targetPreviewPath, juce::PathStrokeType (1.8f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        drawPreviewMatchPoints (g, plotBounds);
     }
 
     g.setColour (accentColour);
@@ -691,5 +692,51 @@ void BolbolRefMasterAudioProcessorEditor::drawSpectrumScale (juce::Graphics& g, 
         auto labelBounds = juce::Rectangle<float> (x - 18.0f, bounds.getBottom() - 18.0f, 36.0f, 14.0f).toNearestInt();
         g.setColour (labelColour);
         g.drawText (frequencyLabels[i], labelBounds, juce::Justification::centred);
+    }
+}
+
+void BolbolRefMasterAudioProcessorEditor::drawPreviewMatchPoints (juce::Graphics& g, juce::Rectangle<float> bounds) const
+{
+    if (! audioProcessor.hasReferenceTrack())
+        return;
+
+    const auto sampleRate = juce::jmax (audioProcessor.getSampleRate(), 44100.0);
+    const auto nyquist = static_cast<float> (sampleRate * 0.5);
+    const auto minFrequency = 20.0f;
+    const auto maxFrequency = juce::jmax (minFrequency + 1.0f, juce::jmin (20000.0f, nyquist));
+    const auto minDecibels = -72.0f;
+    const auto maxDecibels = -12.0f;
+    const auto normalisationDb = calculateSpectrumNormalisationDb (displayTargetPreviewSpectrum, sampleRate);
+    const auto previewMatchPoints = audioProcessor.getPreviewMatchPoints();
+
+    auto mapX = [bounds, minFrequency, maxFrequency] (float frequency)
+    {
+        const auto proportion = (std::log10 (frequency) - std::log10 (minFrequency))
+                              / (std::log10 (maxFrequency) - std::log10 (minFrequency));
+        return juce::jmap (proportion, 0.0f, 1.0f, bounds.getX(), bounds.getRight());
+    };
+
+    g.setFont (juce::FontOptions (11.0f));
+
+    for (const auto& matchPoint : previewMatchPoints)
+    {
+        const auto x = mapX (juce::jlimit (minFrequency, maxFrequency, matchPoint.frequencyHz));
+        const auto decibels = juce::jlimit (minDecibels,
+                                            maxDecibels,
+                                            matchPoint.gainDb - normalisationDb - 24.0f);
+        const auto y = juce::jmap (decibels, minDecibels, maxDecibels, bounds.getBottom(), bounds.getY());
+        const auto markerBounds = juce::Rectangle<float> (x - 4.0f, y - 4.0f, 8.0f, 8.0f);
+
+        g.setColour (warningColour);
+        g.fillEllipse (markerBounds);
+        g.setColour (backgroundColour);
+        g.drawEllipse (markerBounds, 1.0f);
+
+        auto labelBounds = juce::Rectangle<float> (x - 18.0f, y - 18.0f, 36.0f, 12.0f).toNearestInt();
+        g.setColour (labelColour);
+        const auto label = matchPoint.frequencyHz >= 1000.0f
+                             ? juce::String (matchPoint.frequencyHz / 1000.0f, 1) + "k"
+                             : juce::String (juce::roundToInt (matchPoint.frequencyHz));
+        g.drawText (label, labelBounds, juce::Justification::centred);
     }
 }

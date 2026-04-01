@@ -39,6 +39,7 @@ private:
     juce::Path createSpectrumPath (juce::Rectangle<float> bounds,
                                    const std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount>& spectrum) const;
     void drawSpectrumScale (juce::Graphics& g, juce::Rectangle<float> bounds) const;
+    void drawPreviewMatchPoints (juce::Graphics& g, juce::Rectangle<float> bounds) const;
     float calculateSpectrumNormalisationDb (
         const std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount>& spectrum,
         double sampleRate) const;
