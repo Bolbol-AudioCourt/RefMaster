@@ -32,6 +32,7 @@ Use APC’s five-phase flow as lightweight guidance:
   - comparison preview
   - later EQ generation
 - Keep audio-thread code real-time safe.
+- Always enforce the mandatory engineering guardrails in `docs/06_engineering_guardrails.md`.
 
 ## Suggested Phase Exit Criteria
 
@@ -49,6 +50,9 @@ Use APC’s five-phase flow as lightweight guidance:
 ### Implement
 - feature works
 - build succeeds
+- real-time safety rules still hold
+- no channel-sharing regressions
+- no new unload / leak risk introduced
 
 ### Ship
 - manual DAW smoke test completed

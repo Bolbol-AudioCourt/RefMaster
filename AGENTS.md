@@ -5,7 +5,7 @@
 - `JuceLibraryCode/` is generated JUCE support code; avoid manual edits unless a JUCE export issue requires it.
 - `Builds/MacOSX/` contains the generated Xcode project (`Bolbol RefMaster.xcodeproj`) and local build outputs.
 - `Bolbol RefMaster.jucer` is the Projucer project definition; regenerate IDE files from here when project settings change.
-- `docs/` contains plugin planning references; review these before architecture, DSP, or UI work: `docs/01_product.md.md` (product goals), `docs/02_audio_behavior.md.md` (audio behavior), `docs/03_dsp_design.md.md` (DSP design), `docs/04_ui_ux.md.md`, `docs/ui-ux-design.png` (the primary UI/UX design reference for implementation), and `docs/05_apc_workflow_reference.md` (APC-inspired workflow guidance for this repo).
+- `docs/` contains plugin planning references; review these before architecture, DSP, or UI work: `docs/01_product.md.md` (product goals), `docs/02_audio_behavior.md.md` (audio behavior), `docs/03_dsp_design.md.md` (DSP design), `docs/04_ui_ux.md.md`, `docs/ui-ux-design.png` (the primary UI/UX design reference for implementation), `docs/05_apc_workflow_reference.md` (APC-inspired workflow guidance for this repo), and `docs/06_engineering_guardrails.md` (mandatory engineering and real-time safety rules).
 - `handoff.md` captures the current product and DSP direction; read it before large changes.
 
 ## Build, Test, and Development Commands
@@ -19,6 +19,18 @@
 - Keep class names in `PascalCase`, methods in `camelCase`, and constants as `kDescriptiveName` or `constexpr` members.
 - Prefer small, explicit changes in `PluginProcessor` and `PluginEditor`; do not introduce large abstractions early.
 - Keep the audio thread real-time safe: no allocations, locks, or file I/O in `processBlock()`.
+
+## Real-Time Safety Rules (Mandatory)
+Always follow these real-time safety rules.
+
+- Do not introduce real-time audio thread violations: allocations, locks, or file I/O in `processBlock()`.
+- Do not introduce channel sharing bugs such as left/right processing overwriting each other.
+- Do not leave audible parameter changes unsmoothed when they would cause zipper noise.
+- Do not introduce bad filter implementations: denormals, instability, or unsafe edge-case behavior.
+- Do not use deprecated JUCE classes or incorrect exporter / CMake flags.
+- Do not leave memory leaks or plugin-unload crashes unresolved.
+
+If a change touches DSP, routing, filters, automation, teardown, or project configuration, review these guardrails before finishing.
 
 ## Testing Guidelines
 - There is no automated test suite yet. Validate changes with a clean Debug build and a manual smoke test in a host such as Ableton Live.
@@ -62,4 +74,5 @@ Never leave the project in a modified but uncommitted state after completing a t
 - Use `docs/` as the planning source of truth for plugin goals, audio behavior, DSP design, and UI/UX direction before proposing or implementing changes.
 - For UI implementation, match the layout and visual direction from `docs/ui-ux-design.png`; use it as the main design reference even if the markdown UI doc is sparse.
 - Use APC as a workflow reference only: follow its Dream → Plan → Design → Implement → Ship mindset via `docs/05_apc_workflow_reference.md`, but keep this repo’s existing Projucer/Xcode structure.
+- Always enforce the mandatory engineering guardrails in `docs/06_engineering_guardrails.md`, especially for DSP, filters, state, teardown, and build/exporter changes.
 - The current roadmap starts with a minimal FFT analyzer; defer EQ matching and broader architecture work until the analyzer is stable.
