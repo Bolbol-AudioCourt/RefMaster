@@ -23,6 +23,7 @@ public:
     static constexpr int fftSize = 1 << fftOrder;
     static constexpr int fftHopSize = fftSize / 2;
     static constexpr int spectrumBinCount = fftSize / 2;
+    static constexpr int previewBandCount = 5;
     static constexpr float spectrumSmoothingAlpha = 0.2f;
     static constexpr int previewDifferenceSmoothingRadius = 4;
 
@@ -66,6 +67,7 @@ public:
     std::array<float, spectrumBinCount> getLatestMagnitudeSpectrum() const noexcept;
     std::array<float, spectrumBinCount> getReferenceMagnitudeSpectrum() const noexcept;
     std::array<float, spectrumBinCount> getPreviewDifferenceSpectrumDb() const noexcept;
+    std::array<float, previewBandCount> getPreviewBandAdjustmentsDb() const noexcept;
     bool loadReferenceFile (const juce::File& file);
     void clearReferenceTrack();
     bool hasReferenceTrack() const noexcept;

@@ -294,6 +294,49 @@ std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> BolbolRefMast
     return smoothedDifferenceSpectrum;
 }
 
+std::array<float, BolbolRefMasterAudioProcessor::previewBandCount> BolbolRefMasterAudioProcessor::getPreviewBandAdjustmentsDb() const noexcept
+{
+    std::array<float, previewBandCount> bandAdjustments {};
+
+    if (! hasReferenceTrack())
+        return bandAdjustments;
+
+    constexpr std::array<std::pair<float, float>, previewBandCount> ranges {{
+        { 20.0f, 80.0f },
+        { 80.0f, 250.0f },
+        { 250.0f, 2000.0f },
+        { 2000.0f, 8000.0f },
+        { 8000.0f, 20000.0f },
+    }};
+
+    const auto sampleRate = juce::jmax (getSampleRate(), 44100.0);
+    const auto binWidth = static_cast<float> (sampleRate / fftSize);
+    const auto differenceSpectrum = getPreviewDifferenceSpectrumDb();
+
+    for (size_t bandIndex = 0; bandIndex < ranges.size(); ++bandIndex)
+    {
+        const auto [lowHz, highHz] = ranges[bandIndex];
+        float sum = 0.0f;
+        int count = 0;
+
+        for (int bin = 1; bin < spectrumBinCount; ++bin)
+        {
+            const auto frequency = static_cast<float> (bin) * binWidth;
+
+            if (frequency < lowHz || frequency >= highHz)
+                continue;
+
+            sum += differenceSpectrum[static_cast<size_t> (bin)];
+            ++count;
+        }
+
+        if (count > 0)
+            bandAdjustments[bandIndex] = juce::jlimit (-6.0f, 6.0f, sum / static_cast<float> (count));
+    }
+
+    return bandAdjustments;
+}
+
 bool BolbolRefMasterAudioProcessor::loadReferenceFile (const juce::File& file)
 {
     auto reader = std::unique_ptr<juce::AudioFormatReader> (audioFormatManager.createReaderFor (file));

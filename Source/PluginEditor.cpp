@@ -442,10 +442,8 @@ void BolbolRefMasterAudioProcessorEditor::drawBandSummary (juce::Graphics& g, ju
         { "Air (8k-20k)", 8000.0f, 20000.0f, negativeColour },
     }};
 
-    const auto sampleRate = juce::jmax (audioProcessor.getSampleRate(), 44100.0);
-    const auto binWidth = static_cast<float> (sampleRate / BolbolRefMasterAudioProcessor::fftSize);
     const auto hasReference = audioProcessor.hasReferenceTrack();
-    const auto differenceSpectrumDb = audioProcessor.getPreviewDifferenceSpectrumDb();
+    const auto previewBandAdjustments = audioProcessor.getPreviewBandAdjustmentsDb();
 
     g.setFont (juce::FontOptions (15.0f));
 
@@ -463,28 +461,7 @@ void BolbolRefMasterAudioProcessorEditor::drawBandSummary (juce::Graphics& g, ju
         g.setColour (juce::Colour (0x1effffff));
         g.fillRoundedRectangle (meterBounds.toFloat(), 3.0f);
 
-        float averageDeltaDb = 0.0f;
-
-        if (hasReference)
-        {
-            int count = 0;
-
-            for (int bin = 1; bin < BolbolRefMasterAudioProcessor::spectrumBinCount; ++bin)
-            {
-                const auto frequency = static_cast<float> (bin) * binWidth;
-
-                if (frequency < band.lowHz || frequency >= band.highHz)
-                    continue;
-
-                averageDeltaDb += differenceSpectrumDb[static_cast<size_t> (bin)];
-                ++count;
-            }
-
-            if (count > 0)
-                averageDeltaDb /= static_cast<float> (count);
-        }
-
-        const auto clampedDelta = juce::jlimit (-6.0f, 6.0f, averageDeltaDb);
+        const auto clampedDelta = previewBandAdjustments[static_cast<size_t> (&band - bands.data())];
         const auto meterFillWidth = juce::jmap (std::abs (clampedDelta), 0.0f, 6.0f, 0.0f, static_cast<float> (meterBounds.getWidth()));
         auto meterFill = meterBounds;
         meterFill.setWidth (juce::roundToInt (meterFillWidth));
