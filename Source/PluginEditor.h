@@ -24,6 +24,7 @@ public:
     ~BolbolRefMasterAudioProcessorEditor() override;
 
     //==============================================================================
+    void mouseUp (const juce::MouseEvent& event) override;
     void paint (juce::Graphics&) override;
     void resized() override;
 
@@ -38,6 +39,8 @@ private:
     // access the processor object that created it.
     BolbolRefMasterAudioProcessor& audioProcessor;
     std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> displaySpectrum {};
+    std::unique_ptr<juce::FileChooser> referenceFileChooser;
+    juce::Rectangle<int> referenceCardBounds;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BolbolRefMasterAudioProcessorEditor)
 };

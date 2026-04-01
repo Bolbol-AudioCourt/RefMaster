@@ -41,6 +41,32 @@ BolbolRefMasterAudioProcessorEditor::~BolbolRefMasterAudioProcessorEditor()
 }
 
 //==============================================================================
+void BolbolRefMasterAudioProcessorEditor::mouseUp (const juce::MouseEvent& event)
+{
+    if (! referenceCardBounds.contains (event.getPosition()))
+        return;
+
+    referenceFileChooser.reset (new juce::FileChooser ("Select a reference track",
+                                                        {},
+                                                        "*.wav;*.aif;*.aiff;*.mp3;*.flac"));
+
+    auto chooserFlags = juce::FileBrowserComponent::openMode
+                      | juce::FileBrowserComponent::canSelectFiles;
+
+    referenceFileChooser->launchAsync (chooserFlags,
+                                       [this] (const juce::FileChooser& chooser)
+                                       {
+                                           const auto selectedFile = chooser.getResult();
+
+                                           if (selectedFile == juce::File())
+                                               return;
+
+                                           audioProcessor.loadReferenceFile (selectedFile);
+                                           repaint();
+                                       });
+}
+
+//==============================================================================
 void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
 {
     g.fillAll (backgroundColour);
@@ -90,12 +116,18 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     auto sidebarContent = sidebar.reduced (18);
 
     auto referenceCard = sidebarContent.removeFromTop (146);
+    referenceCardBounds = referenceCard;
     g.setColour (juce::Colour (0xff15161c));
     g.fillRoundedRectangle (referenceCard.toFloat(), 12.0f);
     g.setColour (borderColour);
     g.drawRoundedRectangle (referenceCard.toFloat(), 12.0f, 1.0f);
 
     auto referenceText = referenceCard.reduced (14);
+    const auto hasReference = audioProcessor.hasReferenceTrack();
+    const auto referenceName = hasReference ? audioProcessor.getReferenceTrackName()
+                                            : juce::String ("Click to load reference");
+    const auto referenceInfo = hasReference ? audioProcessor.getReferenceTrackInfo()
+                                            : juce::String ("WAV, AIFF, MP3, or FLAC");
     g.setColour (mutedTextColour);
     g.setFont (juce::FontOptions (16.0f));
     g.drawText ("REFERENCE TRACK", referenceText.removeFromTop (22), juce::Justification::centredLeft);
@@ -108,10 +140,10 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
 
     g.setColour (textColour);
     g.setFont (juce::FontOptions (17.0f));
-    g.drawFittedText ("kendrick_ref.wav", referenceText.removeFromTop (26), juce::Justification::centredLeft, 1);
+    g.drawFittedText (referenceName, referenceText.removeFromTop (26), juce::Justification::centredLeft, 1);
     g.setColour (mutedTextColour);
     g.setFont (juce::FontOptions (14.0f));
-    g.drawFittedText ("4:12 · 44.1kHz · 24bit", referenceText.removeFromTop (20), juce::Justification::centredLeft, 1);
+    g.drawFittedText (referenceInfo, referenceText.removeFromTop (20), juce::Justification::centredLeft, 1);
 
     sidebarContent.removeFromTop (12);
 
