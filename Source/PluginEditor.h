@@ -32,6 +32,7 @@ private:
     void drawSpectrumAnalyzer (juce::Graphics& g, juce::Rectangle<int> bounds);
     void drawLegend (juce::Graphics& g, juce::Rectangle<int> bounds) const;
     juce::Path createSpectrumPath (juce::Rectangle<float> bounds) const;
+    void drawSpectrumScale (juce::Graphics& g, juce::Rectangle<float> bounds) const;
 
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.

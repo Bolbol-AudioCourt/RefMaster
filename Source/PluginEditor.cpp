@@ -22,6 +22,8 @@ const auto mutedTextColour = juce::Colour (0x66d9d3ea);
 const auto accentColour = juce::Colour (0xffc7b7ff);
 const auto fillColour = juce::Colour (0x663f5665);
 const auto legendColour = juce::Colour (0xff6ac18d);
+const auto scaleLineColour = juce::Colour (0x18ffffff);
+const auto labelColour = juce::Colour (0x88d9d3ea);
 }
 
 //==============================================================================
@@ -123,18 +125,14 @@ void BolbolRefMasterAudioProcessorEditor::drawSpectrumAnalyzer (juce::Graphics& 
 
     auto legendArea = content.removeFromBottom (28);
     auto graphBounds = content.toFloat().reduced (0.0f, 12.0f);
+    auto plotBounds = graphBounds.reduced (14.0f, 12.0f);
 
     g.setColour (graphColour);
     g.fillRoundedRectangle (graphBounds, 12.0f);
 
-    for (int line = 1; line <= 4; ++line)
-    {
-        const auto y = juce::jmap (static_cast<float> (line), 0.0f, 5.0f, graphBounds.getY(), graphBounds.getBottom());
-        g.setColour (juce::Colour (0x14ffffff));
-        g.drawHorizontalLine (juce::roundToInt (y), graphBounds.getX(), graphBounds.getRight());
-    }
+    drawSpectrumScale (g, plotBounds);
 
-    auto spectrumPath = createSpectrumPath (graphBounds.reduced (14.0f, 12.0f));
+    auto spectrumPath = createSpectrumPath (plotBounds);
 
     juce::Path fillPath (spectrumPath);
     fillPath.lineTo (graphBounds.getRight() - 14.0f, graphBounds.getBottom() - 12.0f);
@@ -224,4 +222,51 @@ juce::Path BolbolRefMasterAudioProcessorEditor::createSpectrumPath (juce::Rectan
         path.startNewSubPath (bounds.getX(), bounds.getBottom());
 
     return path;
+}
+
+void BolbolRefMasterAudioProcessorEditor::drawSpectrumScale (juce::Graphics& g, juce::Rectangle<float> bounds) const
+{
+    constexpr std::array<float, 5> frequencies { 20.0f, 100.0f, 1000.0f, 10000.0f, 20000.0f };
+    constexpr std::array<const char*, 5> frequencyLabels { "20", "100", "1k", "10k", "20k" };
+    constexpr std::array<float, 4> decibelMarks { -12.0f, -24.0f, -36.0f, -48.0f };
+
+    const auto sampleRate = juce::jmax (audioProcessor.getSampleRate(), 44100.0);
+    const auto nyquist = static_cast<float> (sampleRate * 0.5);
+    const auto minFrequency = 20.0f;
+    const auto maxFrequency = juce::jmax (minFrequency + 1.0f, juce::jmin (20000.0f, nyquist));
+    const auto minDecibels = -72.0f;
+    const auto maxDecibels = -12.0f;
+
+    auto mapX = [bounds, minFrequency, maxFrequency] (float frequency)
+    {
+        const auto proportion = (std::log10 (frequency) - std::log10 (minFrequency))
+                              / (std::log10 (maxFrequency) - std::log10 (minFrequency));
+        return juce::jmap (proportion, 0.0f, 1.0f, bounds.getX(), bounds.getRight());
+    };
+
+    g.setFont (juce::FontOptions (13.0f));
+
+    for (auto decibels : decibelMarks)
+    {
+        const auto y = juce::jmap (decibels, minDecibels, maxDecibels, bounds.getBottom(), bounds.getY());
+        g.setColour (scaleLineColour);
+        g.drawHorizontalLine (juce::roundToInt (y), bounds.getX(), bounds.getRight());
+
+        auto labelBounds = juce::Rectangle<float> (bounds.getX() + 6.0f, y - 8.0f, 42.0f, 16.0f).toNearestInt();
+        g.setColour (labelColour);
+        g.drawText (juce::String (juce::roundToInt (decibels)) + " dB", labelBounds, juce::Justification::centredLeft);
+    }
+
+    for (size_t i = 0; i < frequencies.size(); ++i)
+    {
+        const auto frequency = juce::jlimit (minFrequency, maxFrequency, frequencies[i]);
+        const auto x = mapX (frequency);
+
+        g.setColour (scaleLineColour);
+        g.drawVerticalLine (juce::roundToInt (x), bounds.getY(), bounds.getBottom());
+
+        auto labelBounds = juce::Rectangle<float> (x - 18.0f, bounds.getBottom() - 18.0f, 36.0f, 14.0f).toNearestInt();
+        g.setColour (labelColour);
+        g.drawText (frequencyLabels[i], labelBounds, juce::Justification::centred);
+    }
 }
