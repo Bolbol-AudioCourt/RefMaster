@@ -62,6 +62,8 @@ private:
     std::unique_ptr<juce::FileChooser> referenceFileChooser;
     juce::Rectangle<int> referenceCardBounds;
     juce::Rectangle<int> clearReferenceButtonBounds;
+    juce::Rectangle<int> applyMatchButtonBounds;
+    juce::Rectangle<int> resetAllButtonBounds;
     juce::Rectangle<int> simpleTabBounds;
     juce::Rectangle<int> detailedTabBounds;
     bool showDetailedComparison = false;

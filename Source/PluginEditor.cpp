@@ -99,6 +99,31 @@ void BolbolRefMasterAudioProcessorEditor::filesDropped (const juce::StringArray&
 //==============================================================================
 void BolbolRefMasterAudioProcessorEditor::mouseUp (const juce::MouseEvent& event)
 {
+    if (applyMatchButtonBounds.contains (event.getPosition()))
+    {
+        if (audioProcessor.hasReferenceTrack())
+        {
+            audioProcessor.setPreviewEqEnabled (true);
+            previewEqToggle.setToggleState (true, juce::dontSendNotification);
+            repaint();
+        }
+
+        return;
+    }
+
+    if (resetAllButtonBounds.contains (event.getPosition()))
+    {
+        audioProcessor.clearReferenceTrack();
+        audioProcessor.setPreviewBlendAmount (0.5f);
+        previewEqToggle.setToggleState (false, juce::dontSendNotification);
+        previewBypassToggle.setToggleState (false, juce::dontSendNotification);
+        previewBlendSlider.setValue (50.0, juce::dontSendNotification);
+        displayReferenceSpectrum.fill (0.0f);
+        displayTargetPreviewSpectrum.fill (0.0f);
+        repaint();
+        return;
+    }
+
     if (simpleTabBounds.contains (event.getPosition()))
     {
         showDetailedComparison = false;
@@ -337,7 +362,27 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
                 sliderLabelBounds,
                 juce::Justification::centredRight);
 
-    auto statusArea = sidebar.removeFromBottom (92).reduced (18, 14);
+    auto actionArea = sidebar.removeFromBottom (124).reduced (18, 14);
+    auto applyButton = actionArea.removeFromTop (32);
+    auto resetButton = actionArea.removeFromTop (32);
+    actionArea.removeFromTop (8);
+    auto statusArea = actionArea;
+
+    applyMatchButtonBounds = applyButton;
+    resetAllButtonBounds = resetButton;
+
+    g.setColour (hasReference ? accentColour.withAlpha (0.18f) : juce::Colour (0x14ffffff));
+    g.fillRoundedRectangle (applyButton.toFloat(), 10.0f);
+    g.setColour (hasReference ? accentColour : mutedTextColour);
+    g.drawRoundedRectangle (applyButton.toFloat(), 10.0f, 1.0f);
+    g.drawText ("APPLY MATCH", applyButton, juce::Justification::centred);
+
+    g.setColour (juce::Colour (0x14ffffff));
+    g.fillRoundedRectangle (resetButton.toFloat(), 10.0f);
+    g.setColour (mutedTextColour);
+    g.drawRoundedRectangle (resetButton.toFloat(), 10.0f, 1.0f);
+    g.drawText ("RESET ALL", resetButton, juce::Justification::centred);
+
     g.setColour (juce::Colour (0xff111217));
     g.fillRoundedRectangle (statusArea.toFloat(), 12.0f);
     g.setColour (mutedTextColour);
