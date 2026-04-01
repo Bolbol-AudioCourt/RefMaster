@@ -410,6 +410,8 @@ void BolbolRefMasterAudioProcessorEditor::drawBandSummary (juce::Graphics& g, ju
     const auto sampleRate = juce::jmax (audioProcessor.getSampleRate(), 44100.0);
     const auto binWidth = static_cast<float> (sampleRate / BolbolRefMasterAudioProcessor::fftSize);
     const auto hasReference = audioProcessor.hasReferenceTrack();
+    const auto inputNormalisationDb = calculateSpectrumNormalisationDb (displaySpectrum, sampleRate);
+    const auto referenceNormalisationDb = calculateSpectrumNormalisationDb (displayReferenceSpectrum, sampleRate);
 
     g.setFont (juce::FontOptions (15.0f));
 
@@ -440,8 +442,8 @@ void BolbolRefMasterAudioProcessorEditor::drawBandSummary (juce::Graphics& g, ju
                 if (frequency < band.lowHz || frequency >= band.highHz)
                     continue;
 
-                const auto inputDb = juce::Decibels::gainToDecibels (juce::jmax (displaySpectrum[static_cast<size_t> (bin)], 1.0e-5f));
-                const auto referenceDb = juce::Decibels::gainToDecibels (juce::jmax (displayReferenceSpectrum[static_cast<size_t> (bin)], 1.0e-5f));
+                const auto inputDb = getNormalisedSpectrumDb (displaySpectrum, bin, inputNormalisationDb);
+                const auto referenceDb = getNormalisedSpectrumDb (displayReferenceSpectrum, bin, referenceNormalisationDb);
                 averageDeltaDb += (referenceDb - inputDb);
                 ++count;
             }
@@ -514,6 +516,7 @@ juce::Path BolbolRefMasterAudioProcessorEditor::createSpectrumPath (
     const auto maxFrequency = juce::jmax (minFrequency + 1.0f, juce::jmin (20000.0f, nyquist));
     const auto minDecibels = -72.0f;
     const auto maxDecibels = -12.0f;
+    const auto normalisationDb = calculateSpectrumNormalisationDb (spectrum, sampleRate);
 
     auto mapX = [bounds, minFrequency, maxFrequency] (float frequency)
     {
@@ -531,8 +534,7 @@ juce::Path BolbolRefMasterAudioProcessorEditor::createSpectrumPath (
         if (frequency < minFrequency || frequency > maxFrequency)
             continue;
 
-        const auto magnitude = juce::jmax (spectrum[static_cast<size_t> (bin)], 1.0e-5f);
-        const auto decibels = juce::Decibels::gainToDecibels (magnitude);
+        const auto decibels = getNormalisedSpectrumDb (spectrum, bin, normalisationDb);
         const auto y = juce::jmap (juce::jlimit (minDecibels, maxDecibels, decibels),
                                    minDecibels, maxDecibels,
                                    bounds.getBottom(), bounds.getY());
@@ -553,6 +555,40 @@ juce::Path BolbolRefMasterAudioProcessorEditor::createSpectrumPath (
         path.startNewSubPath (bounds.getX(), bounds.getBottom());
 
     return path;
+}
+
+float BolbolRefMasterAudioProcessorEditor::calculateSpectrumNormalisationDb (
+    const std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount>& spectrum,
+    double sampleRate) const
+{
+    const auto minFrequency = 20.0f;
+    const auto maxFrequency = juce::jmin (20000.0f, static_cast<float> (sampleRate * 0.5));
+    const auto binWidth = static_cast<float> (sampleRate / BolbolRefMasterAudioProcessor::fftSize);
+
+    float sumDb = 0.0f;
+    int count = 0;
+
+    for (int bin = 1; bin < BolbolRefMasterAudioProcessor::spectrumBinCount; ++bin)
+    {
+        const auto frequency = static_cast<float> (bin) * binWidth;
+
+        if (frequency < minFrequency || frequency > maxFrequency)
+            continue;
+
+        sumDb += juce::Decibels::gainToDecibels (juce::jmax (spectrum[static_cast<size_t> (bin)], 1.0e-5f));
+        ++count;
+    }
+
+    return count > 0 ? (sumDb / static_cast<float> (count)) : 0.0f;
+}
+
+float BolbolRefMasterAudioProcessorEditor::getNormalisedSpectrumDb (
+    const std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount>& spectrum,
+    int bin,
+    float normalisationDb) const
+{
+    const auto magnitude = juce::jmax (spectrum[static_cast<size_t> (bin)], 1.0e-5f);
+    return juce::Decibels::gainToDecibels (magnitude) - normalisationDb - 24.0f;
 }
 
 void BolbolRefMasterAudioProcessorEditor::drawSpectrumScale (juce::Graphics& g, juce::Rectangle<float> bounds) const
