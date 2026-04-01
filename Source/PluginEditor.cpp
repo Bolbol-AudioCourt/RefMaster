@@ -33,6 +33,15 @@ const auto negativeColour = juce::Colour (0xffe58b8b);
 BolbolRefMasterAudioProcessorEditor::BolbolRefMasterAudioProcessorEditor (BolbolRefMasterAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
+    previewEqToggle.setButtonText ("Preview EQ");
+    previewEqToggle.setToggleState (audioProcessor.isPreviewEqEnabled(), juce::dontSendNotification);
+    previewEqToggle.onClick = [this]
+    {
+        audioProcessor.setPreviewEqEnabled (previewEqToggle.getToggleState());
+        repaint();
+    };
+    addAndMakeVisible (previewEqToggle);
+
     previewBlendSlider.setSliderStyle (juce::Slider::LinearHorizontal);
     previewBlendSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
     previewBlendSlider.setRange (0.0, 100.0, 1.0);
@@ -174,7 +183,9 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     auto referenceText = referenceCard.reduced (14);
     const auto hasReference = audioProcessor.hasReferenceTrack();
     const auto correlation = hasReference ? calculateSpectrumCorrelation() : 0.0f;
-    const auto previewProcessingActive = hasReference && audioProcessor.getPreviewBlendAmount() > 0.001f;
+    const auto previewProcessingActive = hasReference
+                                      && audioProcessor.isPreviewEqEnabled()
+                                      && audioProcessor.getPreviewBlendAmount() > 0.001f;
     const auto referenceName = hasReference ? audioProcessor.getReferenceTrackName()
                                             : juce::String ("Click to load reference");
     const auto referenceInfo = hasReference ? audioProcessor.getReferenceTrackInfo()
@@ -229,6 +240,11 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("Detailed", detailedTab, juce::Justification::centred);
 
     sidebarContent.removeFromTop (14);
+
+    auto toggleArea = sidebarContent.removeFromTop (26);
+    g.setColour (mutedTextColour);
+    g.setFont (juce::FontOptions (14.0f));
+    g.drawText ("Audio preview", toggleArea.removeFromLeft (96), juce::Justification::centredLeft);
 
     auto blendPanel = sidebarContent.removeFromTop (236);
     g.setColour (juce::Colour (0xff15161c));
@@ -338,6 +354,8 @@ void BolbolRefMasterAudioProcessorEditor::resized()
     sidebarContent.removeFromTop (12);
     sidebarContent.removeFromTop (34);
     sidebarContent.removeFromTop (14);
+    auto toggleArea = sidebarContent.removeFromTop (26);
+    previewEqToggle.setBounds (toggleArea.removeFromRight (120));
 
     auto blendPanel = sidebarContent.removeFromTop (236);
     auto sliderBounds = blendPanel.removeFromBottom (32).reduced (14, 6);

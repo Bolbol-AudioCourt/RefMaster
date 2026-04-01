@@ -264,16 +264,25 @@ juce::AudioProcessorEditor* BolbolRefMasterAudioProcessor::createEditor()
 void BolbolRefMasterAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     juce::MemoryOutputStream stream (destData, false);
+    stream.writeBool (isPreviewEqEnabled());
     stream.writeFloat (getPreviewBlendAmount());
 }
 
 void BolbolRefMasterAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    if (data == nullptr || sizeInBytes < static_cast<int> (sizeof (float)))
+    if (data == nullptr || sizeInBytes < 1)
         return;
 
     juce::MemoryInputStream stream (data, static_cast<size_t> (sizeInBytes), false);
-    setPreviewBlendAmount (stream.readFloat());
+    if (sizeInBytes >= static_cast<int> (sizeof (bool) + sizeof (float)))
+    {
+        setPreviewEqEnabled (stream.readBool());
+        setPreviewBlendAmount (stream.readFloat());
+    }
+    else
+    {
+        setPreviewBlendAmount (stream.readFloat());
+    }
 }
 
 std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> BolbolRefMasterAudioProcessor::getLatestMagnitudeSpectrum() const noexcept
@@ -407,6 +416,16 @@ void BolbolRefMasterAudioProcessor::setPreviewBlendAmount (float newAmount) noex
 float BolbolRefMasterAudioProcessor::getPreviewBlendAmount() const noexcept
 {
     return previewBlendAmount.load (std::memory_order_acquire);
+}
+
+void BolbolRefMasterAudioProcessor::setPreviewEqEnabled (bool shouldBeEnabled) noexcept
+{
+    previewEqEnabled.store (shouldBeEnabled, std::memory_order_release);
+}
+
+bool BolbolRefMasterAudioProcessor::isPreviewEqEnabled() const noexcept
+{
+    return previewEqEnabled.load (std::memory_order_acquire);
 }
 
 bool BolbolRefMasterAudioProcessor::loadReferenceFile (const juce::File& file)
@@ -612,6 +631,9 @@ void BolbolRefMasterAudioProcessor::updatePreviewFilterCoefficients (int numSamp
 
 void BolbolRefMasterAudioProcessor::applyPreviewEq (juce::AudioBuffer<float>& buffer) noexcept
 {
+    if (! isPreviewEqEnabled())
+        return;
+
     juce::dsp::AudioBlock<float> block (buffer);
     juce::dsp::ProcessContextReplacing<float> context (block);
 
