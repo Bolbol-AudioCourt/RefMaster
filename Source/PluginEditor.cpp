@@ -42,6 +42,29 @@ BolbolRefMasterAudioProcessorEditor::~BolbolRefMasterAudioProcessorEditor()
 }
 
 //==============================================================================
+bool BolbolRefMasterAudioProcessorEditor::isInterestedInFileDrag (const juce::StringArray& files)
+{
+    if (files.isEmpty())
+        return false;
+
+    const juce::StringArray allowedExtensions { ".wav", ".aif", ".aiff", ".mp3", ".flac" };
+    const auto file = juce::File (files[0]);
+
+    return allowedExtensions.contains (file.getFileExtension().toLowerCase());
+}
+
+void BolbolRefMasterAudioProcessorEditor::filesDropped (const juce::StringArray& files, int x, int y)
+{
+    juce::ignoreUnused (x, y);
+
+    if (! isInterestedInFileDrag (files))
+        return;
+
+    audioProcessor.loadReferenceFile (juce::File (files[0]));
+    repaint();
+}
+
+//==============================================================================
 void BolbolRefMasterAudioProcessorEditor::mouseUp (const juce::MouseEvent& event)
 {
     if (! referenceCardBounds.contains (event.getPosition()))

@@ -17,6 +17,7 @@
 /**
 */
 class BolbolRefMasterAudioProcessorEditor  : public juce::AudioProcessorEditor,
+                                             public juce::FileDragAndDropTarget,
                                              private juce::Timer
 {
 public:
@@ -24,6 +25,8 @@ public:
     ~BolbolRefMasterAudioProcessorEditor() override;
 
     //==============================================================================
+    bool isInterestedInFileDrag (const juce::StringArray& files) override;
+    void filesDropped (const juce::StringArray& files, int x, int y) override;
     void mouseUp (const juce::MouseEvent& event) override;
     void paint (juce::Graphics&) override;
     void resized() override;
