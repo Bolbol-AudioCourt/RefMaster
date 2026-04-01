@@ -24,6 +24,8 @@ const auto fillColour = juce::Colour (0x663f5665);
 const auto legendColour = juce::Colour (0xff6ac18d);
 const auto scaleLineColour = juce::Colour (0x18ffffff);
 const auto labelColour = juce::Colour (0x88d9d3ea);
+const auto successColour = juce::Colour (0xff5cb47a);
+const auto warningColour = juce::Colour (0xffdfb85f);
 }
 
 //==============================================================================
@@ -52,6 +54,27 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     g.setColour (textColour);
     g.setFont (juce::FontOptions (28.0f));
     g.drawText ("BOLBOL REFMASTER", header.removeFromLeft (420).reduced (20, 10), juce::Justification::centredLeft);
+
+    auto headerButtons = header.removeFromRight (240).reduced (0, 10);
+    auto versionBounds = headerButtons.removeFromRight (54);
+    auto bypassBounds = headerButtons.removeFromRight (92).reduced (8, 0);
+    auto activeBounds = headerButtons.removeFromRight (92).reduced (8, 0);
+
+    g.setColour (successColour.withAlpha (0.22f));
+    g.fillRoundedRectangle (activeBounds.toFloat(), 10.0f);
+    g.setColour (successColour);
+    g.drawRoundedRectangle (activeBounds.toFloat(), 10.0f, 1.0f);
+    g.drawText ("ACTIVE", activeBounds, juce::Justification::centred);
+
+    g.setColour (juce::Colour (0x22ffffff));
+    g.fillRoundedRectangle (bypassBounds.toFloat(), 10.0f);
+    g.setColour (mutedTextColour);
+    g.drawRoundedRectangle (bypassBounds.toFloat(), 10.0f, 1.0f);
+    g.drawText ("BYPASS", bypassBounds, juce::Justification::centred);
+
+    g.setColour (mutedTextColour);
+    g.setFont (juce::FontOptions (13.0f));
+    g.drawText ("v0.1", versionBounds, juce::Justification::centredRight);
 
     auto content = bounds.reduced (20, 18);
     auto sidebar = content.removeFromRight (260);
@@ -88,6 +111,29 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
 
     g.setColour (textColour);
     g.drawFittedText ("Reference import, smoothing, and EQ matching come after the analyzer is stable.", statusArea, juce::Justification::topLeft, 3);
+
+    auto footer = getLocalBounds().removeFromBottom (34).reduced (20, 4);
+    g.setColour (juce::Colour (0xff121318));
+    g.fillRoundedRectangle (footer.toFloat(), 10.0f);
+    g.setColour (borderColour);
+    g.drawRoundedRectangle (footer.toFloat(), 10.0f, 1.0f);
+    g.setFont (juce::FontOptions (14.0f));
+    g.setColour (mutedTextColour);
+    g.drawText ("TARGET", footer.removeFromLeft (58), juce::Justification::centredLeft);
+    g.setColour (textColour);
+    g.drawText ("-9.2 LUFS", footer.removeFromLeft (92), juce::Justification::centredLeft);
+    g.setColour (mutedTextColour);
+    g.drawText ("FFT", footer.removeFromLeft (36), juce::Justification::centredLeft);
+    g.setColour (textColour);
+    g.drawText ("2048", footer.removeFromLeft (56), juce::Justification::centredLeft);
+    g.setColour (mutedTextColour);
+    g.drawText ("MODE", footer.removeFromLeft (48), juce::Justification::centredLeft);
+    g.setColour (warningColour);
+    g.drawText ("ANALYZER", footer.removeFromLeft (90), juce::Justification::centredLeft);
+    g.setColour (mutedTextColour);
+    g.drawText ("CORR", footer.removeFromLeft (42), juce::Justification::centredLeft);
+    g.setColour (successColour);
+    g.drawText ("0.94", footer, juce::Justification::centredLeft);
 }
 
 void BolbolRefMasterAudioProcessorEditor::resized()
@@ -123,6 +169,7 @@ void BolbolRefMasterAudioProcessorEditor::drawSpectrumAnalyzer (juce::Graphics& 
     g.setFont (juce::FontOptions (15.0f));
     g.drawText ("FFT 2048 • input view", titleRow, juce::Justification::centredRight);
 
+    auto tabsArea = content.removeFromBottom (34);
     auto legendArea = content.removeFromBottom (28);
     auto graphBounds = content.toFloat().reduced (0.0f, 12.0f);
     auto plotBounds = graphBounds.reduced (14.0f, 12.0f);
@@ -151,6 +198,23 @@ void BolbolRefMasterAudioProcessorEditor::drawSpectrumAnalyzer (juce::Graphics& 
     g.strokePath (spectrumPath, juce::PathStrokeType (2.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
     drawLegend (g, legendArea);
+
+    auto activeTab = tabsArea.removeFromLeft (104).reduced (0, 2);
+    auto secondaryTab = tabsArea.removeFromLeft (104).reduced (8, 2);
+    auto thirdTab = tabsArea.removeFromLeft (132).reduced (8, 2);
+
+    g.setColour (accentColour.withAlpha (0.16f));
+    g.fillRoundedRectangle (activeTab.toFloat(), 8.0f);
+    g.setColour (accentColour);
+    g.drawRoundedRectangle (activeTab.toFloat(), 8.0f, 1.0f);
+    g.drawText ("EQ match", activeTab, juce::Justification::centred);
+
+    g.setColour (juce::Colour (0x18ffffff));
+    g.fillRoundedRectangle (secondaryTab.toFloat(), 8.0f);
+    g.fillRoundedRectangle (thirdTab.toFloat(), 8.0f);
+    g.setColour (mutedTextColour);
+    g.drawText ("Dynamics", secondaryTab, juce::Justification::centred);
+    g.drawText ("Stereo width", thirdTab, juce::Justification::centred);
 }
 
 void BolbolRefMasterAudioProcessorEditor::drawLegend (juce::Graphics& g, juce::Rectangle<int> bounds) const
