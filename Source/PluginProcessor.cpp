@@ -9,6 +9,9 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#include <algorithm>
+#include <cstring>
+
 //==============================================================================
 BolbolRefMasterAudioProcessor::BolbolRefMasterAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -31,7 +34,7 @@ BolbolRefMasterAudioProcessor::~BolbolRefMasterAudioProcessor()
 //==============================================================================
 const juce::String BolbolRefMasterAudioProcessor::getName() const
 {
-    return JucePlugin_Name;
+    return "Bolbol RefMaster";
 }
 
 bool BolbolRefMasterAudioProcessor::acceptsMidi() const
@@ -93,8 +96,18 @@ void BolbolRefMasterAudioProcessor::changeProgramName (int index, const juce::St
 //==============================================================================
 void BolbolRefMasterAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    juce::ignoreUnused (sampleRate, samplesPerBlock);
+
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
+    fifoIndex = 0;
+    activeSpectrumBufferIndex.store (0, std::memory_order_release);
+
+    analysisFifo.fill (0.0f);
+    fftData.fill (0.0f);
+
+    for (auto& spectrumBuffer : spectrumBuffers)
+        spectrumBuffer.fill (0.0f);
 }
 
 void BolbolRefMasterAudioProcessor::releaseResources()
@@ -132,6 +145,8 @@ bool BolbolRefMasterAudioProcessor::isBusesLayoutSupported (const BusesLayout& l
 void BolbolRefMasterAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
+    juce::ignoreUnused (midiMessages);
+
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
@@ -144,17 +159,20 @@ void BolbolRefMasterAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
-    {
-        auto* channelData = buffer.getWritePointer (channel);
+    if (totalNumInputChannels <= 0)
+        return;
 
-        // ..do something to the data...
+    const auto* const* channelData = buffer.getArrayOfReadPointers();
+    const auto inverseInputChannelCount = 1.0f / static_cast<float> (totalNumInputChannels);
+
+    for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+    {
+        float monoSample = 0.0f;
+
+        for (int channel = 0; channel < totalNumInputChannels; ++channel)
+            monoSample += channelData[channel][sample];
+
+        pushNextSampleIntoFifo (monoSample * inverseInputChannelCount);
     }
 }
 
@@ -181,6 +199,45 @@ void BolbolRefMasterAudioProcessor::setStateInformation (const void* data, int s
 {
     // You should use this method to restore your parameters from this memory block,
     // whose contents will have been created by the getStateInformation() call.
+}
+
+std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> BolbolRefMasterAudioProcessor::getLatestMagnitudeSpectrum() const noexcept
+{
+    return spectrumBuffers[activeSpectrumBufferIndex.load (std::memory_order_acquire)];
+}
+
+void BolbolRefMasterAudioProcessor::pushNextSampleIntoFifo (float sample) noexcept
+{
+    analysisFifo[static_cast<size_t> (fifoIndex++)] = sample;
+
+    if (fifoIndex < fftSize)
+        return;
+
+    performFrequencyAnalysis();
+
+    std::memmove (analysisFifo.data(),
+                  analysisFifo.data() + fftHopSize,
+                  static_cast<size_t> (fftSize - fftHopSize) * sizeof (float));
+
+    fifoIndex = fftSize - fftHopSize;
+}
+
+void BolbolRefMasterAudioProcessor::performFrequencyAnalysis() noexcept
+{
+    std::fill (fftData.begin(), fftData.end(), 0.0f);
+    std::copy (analysisFifo.begin(), analysisFifo.end(), fftData.begin());
+
+    windowingFunction.multiplyWithWindowingTable (fftData.data(), static_cast<size_t> (fftSize));
+    forwardFFT.performFrequencyOnlyForwardTransform (fftData.data());
+
+    const auto writeBufferIndex = 1 - activeSpectrumBufferIndex.load (std::memory_order_relaxed);
+    auto& writeBuffer = spectrumBuffers[static_cast<size_t> (writeBufferIndex)];
+    const auto normalisation = 1.0f / static_cast<float> (fftSize);
+
+    for (int bin = 0; bin < spectrumBinCount; ++bin)
+        writeBuffer[static_cast<size_t> (bin)] = fftData[static_cast<size_t> (bin)] * normalisation;
+
+    activeSpectrumBufferIndex.store (writeBufferIndex, std::memory_order_release);
 }
 
 //==============================================================================
