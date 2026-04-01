@@ -1,0 +1,6 @@
+.DS_Store
+.omx/
+Builds/MacOSX/build/
+*.xcuserstate
+**/xcuserdata/
+handoff.md
