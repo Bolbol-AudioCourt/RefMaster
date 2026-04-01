@@ -67,6 +67,15 @@ void BolbolRefMasterAudioProcessorEditor::filesDropped (const juce::StringArray&
 //==============================================================================
 void BolbolRefMasterAudioProcessorEditor::mouseUp (const juce::MouseEvent& event)
 {
+    if (clearReferenceButtonBounds.contains (event.getPosition()))
+    {
+        audioProcessor.clearReferenceTrack();
+        displayReferenceSpectrum.fill (0.0f);
+        displayTargetPreviewSpectrum.fill (0.0f);
+        repaint();
+        return;
+    }
+
     if (! referenceCardBounds.contains (event.getPosition()))
         return;
 
@@ -164,12 +173,28 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     g.setColour (mutedTextColour);
     g.drawText ("+", plusArea.withWidth (28), juce::Justification::centredLeft);
 
+    auto clearRow = referenceText.removeFromBottom (22);
+    clearReferenceButtonBounds = clearRow.removeFromRight (84);
+
     g.setColour (textColour);
     g.setFont (juce::FontOptions (17.0f));
     g.drawFittedText (referenceName, referenceText.removeFromTop (26), juce::Justification::centredLeft, 1);
     g.setColour (mutedTextColour);
     g.setFont (juce::FontOptions (14.0f));
     g.drawFittedText (referenceInfo, referenceText.removeFromTop (20), juce::Justification::centredLeft, 1);
+
+    if (hasReference)
+    {
+        g.setColour (juce::Colour (0x18ffffff));
+        g.fillRoundedRectangle (clearReferenceButtonBounds.toFloat(), 8.0f);
+        g.setColour (mutedTextColour);
+        g.drawRoundedRectangle (clearReferenceButtonBounds.toFloat(), 8.0f, 1.0f);
+        g.drawText ("RESET", clearReferenceButtonBounds, juce::Justification::centred);
+    }
+    else
+    {
+        clearReferenceButtonBounds = {};
+    }
 
     sidebarContent.removeFromTop (12);
 

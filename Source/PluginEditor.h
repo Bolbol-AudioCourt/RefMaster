@@ -55,6 +55,7 @@ private:
     std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> displayTargetPreviewSpectrum {};
     std::unique_ptr<juce::FileChooser> referenceFileChooser;
     juce::Rectangle<int> referenceCardBounds;
+    juce::Rectangle<int> clearReferenceButtonBounds;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BolbolRefMasterAudioProcessorEditor)
 };

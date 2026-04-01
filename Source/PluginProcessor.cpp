@@ -319,6 +319,17 @@ bool BolbolRefMasterAudioProcessor::loadReferenceFile (const juce::File& file)
     return true;
 }
 
+void BolbolRefMasterAudioProcessor::clearReferenceTrack()
+{
+    for (auto& referenceSpectrumBuffer : referenceSpectrumBuffers)
+        referenceSpectrumBuffer.fill (0.0f);
+
+    activeReferenceSpectrumBufferIndex.store (0, std::memory_order_release);
+    referenceTrackName.clear();
+    referenceTrackInfo.clear();
+    referenceTrackLoaded.store (false, std::memory_order_release);
+}
+
 bool BolbolRefMasterAudioProcessor::hasReferenceTrack() const noexcept
 {
     return referenceTrackLoaded.load (std::memory_order_acquire);

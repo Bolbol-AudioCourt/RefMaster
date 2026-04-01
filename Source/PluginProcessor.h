@@ -65,6 +65,7 @@ public:
     std::array<float, spectrumBinCount> getLatestMagnitudeSpectrum() const noexcept;
     std::array<float, spectrumBinCount> getReferenceMagnitudeSpectrum() const noexcept;
     bool loadReferenceFile (const juce::File& file);
+    void clearReferenceTrack();
     bool hasReferenceTrack() const noexcept;
     juce::String getReferenceTrackName() const;
     juce::String getReferenceTrackInfo() const;
