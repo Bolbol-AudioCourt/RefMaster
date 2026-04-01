@@ -23,6 +23,7 @@ public:
     static constexpr int fftSize = 1 << fftOrder;
     static constexpr int fftHopSize = fftSize / 2;
     static constexpr int spectrumBinCount = fftSize / 2;
+    static constexpr float spectrumSmoothingAlpha = 0.2f;
 
     //==============================================================================
     BolbolRefMasterAudioProcessor();

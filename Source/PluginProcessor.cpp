@@ -230,12 +230,20 @@ void BolbolRefMasterAudioProcessor::performFrequencyAnalysis() noexcept
     windowingFunction.multiplyWithWindowingTable (fftData.data(), static_cast<size_t> (fftSize));
     forwardFFT.performFrequencyOnlyForwardTransform (fftData.data());
 
-    const auto writeBufferIndex = 1 - activeSpectrumBufferIndex.load (std::memory_order_relaxed);
+    const auto currentBufferIndex = activeSpectrumBufferIndex.load (std::memory_order_relaxed);
+    const auto writeBufferIndex = 1 - currentBufferIndex;
+    const auto& previousBuffer = spectrumBuffers[static_cast<size_t> (currentBufferIndex)];
     auto& writeBuffer = spectrumBuffers[static_cast<size_t> (writeBufferIndex)];
     const auto normalisation = 1.0f / static_cast<float> (fftSize);
+    const auto alpha = spectrumSmoothingAlpha;
+    const auto oneMinusAlpha = 1.0f - alpha;
 
     for (int bin = 0; bin < spectrumBinCount; ++bin)
-        writeBuffer[static_cast<size_t> (bin)] = fftData[static_cast<size_t> (bin)] * normalisation;
+    {
+        const auto index = static_cast<size_t> (bin);
+        const auto currentMagnitude = fftData[index] * normalisation;
+        writeBuffer[index] = (alpha * currentMagnitude) + (oneMinusAlpha * previousBuffer[index]);
+    }
 
     activeSpectrumBufferIndex.store (writeBufferIndex, std::memory_order_release);
 }
