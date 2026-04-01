@@ -19,6 +19,13 @@
 class BolbolRefMasterAudioProcessor  : public juce::AudioProcessor
 {
 public:
+    struct PreviewMatchPoint
+    {
+        float frequencyHz = 0.0f;
+        float gainDb = 0.0f;
+        float q = 1.0f;
+    };
+
     static constexpr int fftOrder = 11;
     static constexpr int fftSize = 1 << fftOrder;
     static constexpr int fftHopSize = fftSize / 2;
@@ -68,6 +75,7 @@ public:
     std::array<float, spectrumBinCount> getReferenceMagnitudeSpectrum() const noexcept;
     std::array<float, spectrumBinCount> getPreviewDifferenceSpectrumDb() const noexcept;
     std::array<float, previewBandCount> getPreviewBandAdjustmentsDb() const noexcept;
+    std::array<PreviewMatchPoint, previewBandCount> getPreviewMatchPoints() const noexcept;
     bool loadReferenceFile (const juce::File& file);
     void clearReferenceTrack();
     bool hasReferenceTrack() const noexcept;

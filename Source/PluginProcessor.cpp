@@ -337,6 +337,36 @@ std::array<float, BolbolRefMasterAudioProcessor::previewBandCount> BolbolRefMast
     return bandAdjustments;
 }
 
+std::array<BolbolRefMasterAudioProcessor::PreviewMatchPoint, BolbolRefMasterAudioProcessor::previewBandCount>
+BolbolRefMasterAudioProcessor::getPreviewMatchPoints() const noexcept
+{
+    std::array<PreviewMatchPoint, previewBandCount> matchPoints {};
+    const auto bandAdjustments = getPreviewBandAdjustmentsDb();
+
+    constexpr std::array<std::pair<float, float>, previewBandCount> ranges {{
+        { 20.0f, 80.0f },
+        { 80.0f, 250.0f },
+        { 250.0f, 2000.0f },
+        { 2000.0f, 8000.0f },
+        { 8000.0f, 20000.0f },
+    }};
+
+    for (size_t bandIndex = 0; bandIndex < ranges.size(); ++bandIndex)
+    {
+        const auto [lowHz, highHz] = ranges[bandIndex];
+        const auto centreFrequency = std::sqrt (lowHz * highHz);
+        const auto octaveSpan = std::log2 (highHz / lowHz);
+
+        matchPoints[bandIndex] = PreviewMatchPoint {
+            centreFrequency,
+            bandAdjustments[bandIndex],
+            juce::jmax (0.4f, 1.0f / octaveSpan)
+        };
+    }
+
+    return matchPoints;
+}
+
 bool BolbolRefMasterAudioProcessor::loadReferenceFile (const juce::File& file)
 {
     auto reader = std::unique_ptr<juce::AudioFormatReader> (audioFormatManager.createReaderFor (file));

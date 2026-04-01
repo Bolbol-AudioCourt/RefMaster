@@ -444,6 +444,7 @@ void BolbolRefMasterAudioProcessorEditor::drawBandSummary (juce::Graphics& g, ju
 
     const auto hasReference = audioProcessor.hasReferenceTrack();
     const auto previewBandAdjustments = audioProcessor.getPreviewBandAdjustmentsDb();
+    const auto previewMatchPoints = audioProcessor.getPreviewMatchPoints();
 
     g.setFont (juce::FontOptions (15.0f));
 
@@ -453,6 +454,7 @@ void BolbolRefMasterAudioProcessorEditor::drawBandSummary (juce::Graphics& g, ju
         auto labelBounds = row.removeFromLeft (220);
         auto valueBounds = row.removeFromRight (74);
         auto verdictBounds = row.removeFromRight (84);
+        auto frequencyBounds = row.removeFromRight (74);
         auto meterBounds = row.reduced (6, 8);
 
         g.setColour (textColour);
@@ -480,6 +482,15 @@ void BolbolRefMasterAudioProcessorEditor::drawBandSummary (juce::Graphics& g, ju
         g.setColour (hasReference ? textColour : mutedTextColour);
         g.drawText ((hasReference ? juce::String (clampedDelta, 1) : juce::String ("--")) + " dB",
                     valueBounds, juce::Justification::centredRight);
+
+        const auto matchPoint = previewMatchPoints[static_cast<size_t> (&band - bands.data())];
+        const auto frequencyLabel = matchPoint.frequencyHz >= 1000.0f
+                                      ? juce::String (matchPoint.frequencyHz / 1000.0f, 1) + "k"
+                                      : juce::String (juce::roundToInt (matchPoint.frequencyHz));
+        g.setColour (mutedTextColour);
+        g.drawText (hasReference ? frequencyLabel : juce::String ("--"),
+                    frequencyBounds,
+                    juce::Justification::centredRight);
 
         g.setColour (verdictColour);
         g.drawText (verdict, verdictBounds, juce::Justification::centredRight);
