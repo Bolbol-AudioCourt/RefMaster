@@ -257,6 +257,7 @@ std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> BolbolRefMast
 std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> BolbolRefMasterAudioProcessor::getPreviewDifferenceSpectrumDb() const noexcept
 {
     std::array<float, spectrumBinCount> differenceSpectrum {};
+    std::array<float, spectrumBinCount> smoothedDifferenceSpectrum {};
 
     if (! hasReferenceTrack())
         return differenceSpectrum;
@@ -275,7 +276,22 @@ std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> BolbolRefMast
         differenceSpectrum[index] = referenceDb - inputDb;
     }
 
-    return differenceSpectrum;
+    for (int bin = 0; bin < spectrumBinCount; ++bin)
+    {
+        float sum = 0.0f;
+        int count = 0;
+
+        for (int offset = -previewDifferenceSmoothingRadius; offset <= previewDifferenceSmoothingRadius; ++offset)
+        {
+            const auto smoothedIndex = juce::jlimit (0, spectrumBinCount - 1, bin + offset);
+            sum += differenceSpectrum[static_cast<size_t> (smoothedIndex)];
+            ++count;
+        }
+
+        smoothedDifferenceSpectrum[static_cast<size_t> (bin)] = sum / static_cast<float> (count);
+    }
+
+    return smoothedDifferenceSpectrum;
 }
 
 bool BolbolRefMasterAudioProcessor::loadReferenceFile (const juce::File& file)
