@@ -88,19 +88,92 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawRoundedRectangle (sidebar.toFloat(), 14.0f, 1.0f);
 
     auto sidebarContent = sidebar.reduced (18);
+
+    auto referenceCard = sidebarContent.removeFromTop (146);
+    g.setColour (juce::Colour (0xff15161c));
+    g.fillRoundedRectangle (referenceCard.toFloat(), 12.0f);
+    g.setColour (borderColour);
+    g.drawRoundedRectangle (referenceCard.toFloat(), 12.0f, 1.0f);
+
+    auto referenceText = referenceCard.reduced (14);
     g.setColour (mutedTextColour);
-    g.setFont (juce::FontOptions (18.0f));
-    g.drawText ("ANALYZER", sidebarContent.removeFromTop (28), juce::Justification::centredLeft);
+    g.setFont (juce::FontOptions (16.0f));
+    g.drawText ("REFERENCE TRACK", referenceText.removeFromTop (22), juce::Justification::centredLeft);
+
+    auto plusArea = referenceText.removeFromTop (34);
+    g.setColour (juce::Colour (0x26ffffff));
+    g.fillEllipse (plusArea.removeFromLeft (28).toFloat());
+    g.setColour (mutedTextColour);
+    g.drawText ("+", plusArea.withWidth (28), juce::Justification::centredLeft);
 
     g.setColour (textColour);
-    g.setFont (juce::FontOptions (16.0f));
-    g.drawFittedText ("Real-time input FFT", sidebarContent.removeFromTop (28), juce::Justification::centredLeft, 1);
-
+    g.setFont (juce::FontOptions (17.0f));
+    g.drawFittedText ("kendrick_ref.wav", referenceText.removeFromTop (26), juce::Justification::centredLeft, 1);
     g.setColour (mutedTextColour);
     g.setFont (juce::FontOptions (14.0f));
-    g.drawFittedText ("Source: stereo average", sidebarContent.removeFromTop (22), juce::Justification::centredLeft, 1);
-    g.drawFittedText ("FFT size: 2048", sidebarContent.removeFromTop (22), juce::Justification::centredLeft, 1);
-    g.drawFittedText ("Update: 30 fps", sidebarContent.removeFromTop (22), juce::Justification::centredLeft, 1);
+    g.drawFittedText ("4:12 · 44.1kHz · 24bit", referenceText.removeFromTop (20), juce::Justification::centredLeft, 1);
+
+    sidebarContent.removeFromTop (12);
+
+    auto modeTabs = sidebarContent.removeFromTop (34);
+    auto simpleTab = modeTabs.removeFromLeft (modeTabs.getWidth() / 2);
+    auto detailedTab = modeTabs;
+    g.setColour (accentColour.withAlpha (0.18f));
+    g.fillRoundedRectangle (simpleTab.toFloat(), 8.0f);
+    g.setColour (accentColour);
+    g.drawText ("Simple", simpleTab, juce::Justification::centred);
+    g.setColour (juce::Colour (0x18ffffff));
+    g.fillRoundedRectangle (detailedTab.toFloat(), 8.0f);
+    g.setColour (mutedTextColour);
+    g.drawText ("Detailed", detailedTab, juce::Justification::centred);
+
+    sidebarContent.removeFromTop (14);
+
+    auto blendPanel = sidebarContent.removeFromTop (236);
+    g.setColour (juce::Colour (0xff15161c));
+    g.fillRoundedRectangle (blendPanel.toFloat(), 12.0f);
+    g.setColour (borderColour);
+    g.drawRoundedRectangle (blendPanel.toFloat(), 12.0f, 1.0f);
+
+    auto blendContent = blendPanel.reduced (14);
+    g.setColour (mutedTextColour);
+    g.setFont (juce::FontOptions (16.0f));
+    g.drawText ("BLEND PER DIMENSION", blendContent.removeFromTop (24), juce::Justification::centredLeft);
+
+    const std::array<std::pair<const char*, int>, 4> blendRows {{
+        { "EQ", 62 },
+        { "Dynamics", 40 },
+        { "Width", 50 },
+        { "Loudness", 80 },
+    }};
+
+    g.setFont (juce::FontOptions (15.0f));
+
+    for (const auto& [label, value] : blendRows)
+    {
+        auto row = blendContent.removeFromTop (46);
+        auto knobBounds = row.removeFromRight (52).reduced (4);
+        auto valueBounds = row.removeFromRight (42);
+
+        g.setColour (textColour);
+        g.drawText (label, row, juce::Justification::centredLeft);
+
+        g.setColour (juce::Colour (0x22ffffff));
+        g.drawEllipse (knobBounds.toFloat(), 2.0f);
+
+        juce::Path arc;
+        const auto startAngle = juce::degreesToRadians (135.0f);
+        const auto endAngle = juce::degreesToRadians (405.0f);
+        const auto angle = juce::jmap (static_cast<float> (value), 0.0f, 100.0f, startAngle, endAngle);
+        arc.addCentredArc (knobBounds.getCentreX(), knobBounds.getCentreY(),
+                           knobBounds.getWidth() * 0.5f, knobBounds.getHeight() * 0.5f,
+                           0.0f, startAngle, angle, true);
+        g.setColour (accentColour);
+        g.strokePath (arc, juce::PathStrokeType (2.0f));
+
+        g.setColour (mutedTextColour);
+        g.drawText (juce::String (value) + "%", valueBounds, juce::Justification::centredRight);
+    }
 
     auto statusArea = sidebar.removeFromBottom (92).reduced (18, 14);
     g.setColour (juce::Colour (0xff111217));
