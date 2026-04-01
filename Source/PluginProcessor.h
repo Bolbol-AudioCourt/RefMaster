@@ -76,6 +76,8 @@ public:
     std::array<float, spectrumBinCount> getPreviewDifferenceSpectrumDb() const noexcept;
     std::array<float, previewBandCount> getPreviewBandAdjustmentsDb() const noexcept;
     std::array<PreviewMatchPoint, previewBandCount> getPreviewMatchPoints() const noexcept;
+    void setPreviewBlendAmount (float newAmount) noexcept;
+    float getPreviewBlendAmount() const noexcept;
     bool loadReferenceFile (const juce::File& file);
     void clearReferenceTrack();
     bool hasReferenceTrack() const noexcept;
@@ -99,6 +101,7 @@ private:
     std::atomic<int> activeSpectrumBufferIndex { 0 };
     std::atomic<int> activeReferenceSpectrumBufferIndex { 0 };
     std::atomic<bool> referenceTrackLoaded { false };
+    std::atomic<float> previewBlendAmount { 0.5f };
     juce::AudioFormatManager audioFormatManager;
     juce::String referenceTrackName;
     juce::String referenceTrackInfo;

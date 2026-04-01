@@ -33,6 +33,20 @@ const auto negativeColour = juce::Colour (0xffe58b8b);
 BolbolRefMasterAudioProcessorEditor::BolbolRefMasterAudioProcessorEditor (BolbolRefMasterAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
+    previewBlendSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+    previewBlendSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+    previewBlendSlider.setRange (0.0, 100.0, 1.0);
+    previewBlendSlider.setValue (audioProcessor.getPreviewBlendAmount() * 100.0f, juce::dontSendNotification);
+    previewBlendSlider.setColour (juce::Slider::trackColourId, accentColour);
+    previewBlendSlider.setColour (juce::Slider::backgroundColourId, juce::Colour (0x22ffffff));
+    previewBlendSlider.setColour (juce::Slider::thumbColourId, textColour);
+    previewBlendSlider.onValueChange = [this]
+    {
+        audioProcessor.setPreviewBlendAmount (static_cast<float> (previewBlendSlider.getValue() / 100.0));
+        repaint();
+    };
+    addAndMakeVisible (previewBlendSlider);
+
     setSize (1024, 720);
     startTimerHz (30);
 }
@@ -227,7 +241,7 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("BLEND PER DIMENSION", blendContent.removeFromTop (24), juce::Justification::centredLeft);
 
     const std::array<std::pair<const char*, int>, 4> blendRows {{
-        { "EQ", juce::roundToInt (correlation * 100.0f) },
+        { "EQ", juce::roundToInt (previewBlendSlider.getValue()) },
         { "Dynamics", 40 },
         { "Width", 50 },
         { "Loudness", 80 },
@@ -260,6 +274,15 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
         g.setColour (mutedTextColour);
         g.drawText (juce::String (value) + "%", valueBounds, juce::Justification::centredRight);
     }
+
+    auto sliderLabelBounds = blendPanel.removeFromBottom (32).reduced (14, 6);
+    g.setColour (mutedTextColour);
+    g.setFont (juce::FontOptions (13.0f));
+    g.drawText ("Preview mix", sliderLabelBounds.removeFromLeft (90), juce::Justification::centredLeft);
+    g.setColour (textColour);
+    g.drawText (juce::String (juce::roundToInt (previewBlendSlider.getValue())) + "%",
+                sliderLabelBounds,
+                juce::Justification::centredRight);
 
     auto statusArea = sidebar.removeFromBottom (92).reduced (18, 14);
     g.setColour (juce::Colour (0xff111217));
@@ -304,6 +327,19 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
 
 void BolbolRefMasterAudioProcessorEditor::resized()
 {
+    auto content = getLocalBounds().reduced (20, 18);
+    auto sidebar = content.removeFromRight (260);
+    auto sidebarContent = sidebar.reduced (18);
+
+    sidebarContent.removeFromTop (146);
+    sidebarContent.removeFromTop (12);
+    sidebarContent.removeFromTop (34);
+    sidebarContent.removeFromTop (14);
+
+    auto blendPanel = sidebarContent.removeFromTop (236);
+    auto sliderBounds = blendPanel.removeFromBottom (32).reduced (14, 6);
+    sliderBounds.removeFromLeft (92);
+    previewBlendSlider.setBounds (sliderBounds.withHeight (16).withY (sliderBounds.getY() + 8));
 }
 
 void BolbolRefMasterAudioProcessorEditor::timerCallback()

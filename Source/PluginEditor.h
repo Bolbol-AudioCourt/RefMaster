@@ -52,6 +52,7 @@ private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     BolbolRefMasterAudioProcessor& audioProcessor;
+    juce::Slider previewBlendSlider;
     std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> displaySpectrum {};
     std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> displayReferenceSpectrum {};
     std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> displayTargetPreviewSpectrum {};

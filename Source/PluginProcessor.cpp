@@ -273,7 +273,7 @@ std::array<float, BolbolRefMasterAudioProcessor::spectrumBinCount> BolbolRefMast
         const auto index = static_cast<size_t> (bin);
         const auto inputDb = juce::Decibels::gainToDecibels (juce::jmax (inputSpectrum[index], 1.0e-5f)) - inputAverageDb;
         const auto referenceDb = juce::Decibels::gainToDecibels (juce::jmax (referenceSpectrum[index], 1.0e-5f)) - referenceAverageDb;
-        differenceSpectrum[index] = referenceDb - inputDb;
+        differenceSpectrum[index] = (referenceDb - inputDb) * getPreviewBlendAmount();
     }
 
     for (int bin = 0; bin < spectrumBinCount; ++bin)
@@ -365,6 +365,16 @@ BolbolRefMasterAudioProcessor::getPreviewMatchPoints() const noexcept
     }
 
     return matchPoints;
+}
+
+void BolbolRefMasterAudioProcessor::setPreviewBlendAmount (float newAmount) noexcept
+{
+    previewBlendAmount.store (juce::jlimit (0.0f, 1.0f, newAmount), std::memory_order_release);
+}
+
+float BolbolRefMasterAudioProcessor::getPreviewBlendAmount() const noexcept
+{
+    return previewBlendAmount.load (std::memory_order_acquire);
 }
 
 bool BolbolRefMasterAudioProcessor::loadReferenceFile (const juce::File& file)
