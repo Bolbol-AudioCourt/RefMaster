@@ -104,7 +104,9 @@ void BolbolRefMasterAudioProcessorEditor::mouseUp (const juce::MouseEvent& event
         if (audioProcessor.hasReferenceTrack())
         {
             audioProcessor.setPreviewEqEnabled (true);
+            audioProcessor.setPreviewEqBypassed (false);
             previewEqToggle.setToggleState (true, juce::dontSendNotification);
+            previewBypassToggle.setToggleState (false, juce::dontSendNotification);
             repaint();
         }
 
