@@ -106,12 +106,9 @@ void BolbolRefMasterAudioProcessorEditor::mouseUp (const juce::MouseEvent& event
     {
         if (audioProcessor.hasReferenceTrack())
         {
-            audioProcessor.setPreviewEqEnabled (true);
-            audioProcessor.setPreviewEqBypassed (false);
-            audioProcessor.setPreviewBlendAmount (1.0f);
-            previewEqToggle.setToggleState (true, juce::dontSendNotification);
+            audioProcessor.commitPreviewAsAppliedMatch();
+            previewEqToggle.setToggleState (false, juce::dontSendNotification);
             previewBypassToggle.setToggleState (false, juce::dontSendNotification);
-            previewBlendSlider.setValue (1.0, juce::dontSendNotification);
             repaint();
         }
 
@@ -121,6 +118,8 @@ void BolbolRefMasterAudioProcessorEditor::mouseUp (const juce::MouseEvent& event
     if (resetAllButtonBounds.contains (event.getPosition()))
     {
         audioProcessor.clearReferenceTrack();
+        audioProcessor.clearAppliedMatch();
+        audioProcessor.setPreviewEqBypassed (false);
         audioProcessor.setPreviewBlendAmount (0.5f);
         audioProcessor.setPreviewOutputGainDb (0.0f);
         previewEqToggle.setToggleState (false, juce::dontSendNotification);
@@ -151,7 +150,6 @@ void BolbolRefMasterAudioProcessorEditor::mouseUp (const juce::MouseEvent& event
     {
         audioProcessor.clearReferenceTrack();
         previewEqToggle.setToggleState (false, juce::dontSendNotification);
-        previewBypassToggle.setToggleState (false, juce::dontSendNotification);
         displayReferenceSpectrum.fill (0.0f);
         displayTargetPreviewSpectrum.fill (0.0f);
         repaint();
@@ -241,7 +239,8 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     auto referenceCard = sidebarContent.removeFromTop (146);
     referenceCardBounds = referenceCard;
     previewEqToggle.setEnabled (audioProcessor.hasReferenceTrack());
-    previewBypassToggle.setEnabled (audioProcessor.hasReferenceTrack() && audioProcessor.isPreviewEqEnabled());
+    previewBypassToggle.setEnabled ((audioProcessor.hasReferenceTrack() && audioProcessor.isPreviewEqEnabled())
+                                    || audioProcessor.isAppliedMatchEnabled());
     g.setColour (juce::Colour (0xff15161c));
     g.fillRoundedRectangle (referenceCard.toFloat(), 12.0f);
     g.setColour (borderColour);
@@ -253,6 +252,7 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     const auto correlation = hasReference ? calculateSpectrumCorrelation() : 0.0f;
     const auto previewTrimDb = hasReference ? audioProcessor.getPreviewOutputTrimDb() : 0.0f;
     const auto previewProcessingActive = audioProcessor.isPreviewEqActive();
+    const auto appliedMatchActive = audioProcessor.isAppliedMatchEnabled() && ! audioProcessor.isPreviewEqBypassed();
     const auto referenceName = hasReference ? audioProcessor.getReferenceTrackName()
                                             : juce::String ("Click to load reference");
     const auto referenceInfo = hasReference ? audioProcessor.getReferenceTrackInfo()
@@ -409,12 +409,16 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
 
     g.setColour (textColour);
     g.drawFittedText (hasReference
-                          ? (previewProcessingActive
-                                 ? "Reference loaded. Preview EQ is active and the analyzer is showing processor-backed matching guidance."
-                                 : "Reference loaded. Comparison is active. Enable Preview EQ to audition the current matching guidance.")
+                          ? (appliedMatchActive
+                                 ? "Reference loaded. Applied Match is committed and active. Use Preview EQ for draft auditioning before the next commit."
+                                 : (previewProcessingActive
+                                        ? "Reference loaded. Preview EQ is active and the analyzer is showing processor-backed matching guidance."
+                                        : "Reference loaded. Comparison is active. Enable Preview EQ to audition the current matching guidance or click Apply Match to commit it."))
                           : (hasReferenceError
                                  ? "Reference load failed. Try a different audio file or reload the current one."
-                                 : "Load or drop a reference track to unlock comparison, target preview, and Preview EQ controls."),
+                                 : (audioProcessor.hasAppliedMatch()
+                                        ? "Reference missing, but the committed match is still stored. Load a new reference to compare again or Reset All to clear it."
+                                        : "Load or drop a reference track to unlock comparison, target preview, and Preview EQ controls.")),
                       statusArea,
                       juce::Justification::topLeft,
                       3);
@@ -435,8 +439,10 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("2048", footer.removeFromLeft (56), juce::Justification::centredLeft);
     g.setColour (mutedTextColour);
     g.drawText ("MODE", footer.removeFromLeft (48), juce::Justification::centredLeft);
-    g.setColour (previewProcessingActive ? warningColour : mutedTextColour);
-    g.drawText (previewProcessingActive ? "PREVIEW EQ" : "ANALYZER", footer.removeFromLeft (90), juce::Justification::centredLeft);
+    g.setColour (appliedMatchActive ? successColour : (previewProcessingActive ? warningColour : mutedTextColour));
+    g.drawText (appliedMatchActive ? "APPLIED" : (previewProcessingActive ? "PREVIEW EQ" : "ANALYZER"),
+                footer.removeFromLeft (90),
+                juce::Justification::centredLeft);
     g.setColour (mutedTextColour);
     g.drawText ("CORR", footer.removeFromLeft (42), juce::Justification::centredLeft);
     g.setColour (successColour);
@@ -445,8 +451,9 @@ void BolbolRefMasterAudioProcessorEditor::paint (juce::Graphics& g)
                 juce::Justification::centredLeft);
     g.setColour (mutedTextColour);
     g.drawText ("TRIM", footer.removeFromLeft (42), juce::Justification::centredLeft);
-    g.setColour (previewProcessingActive ? textColour : mutedTextColour);
-    g.drawText (hasReference ? juce::String (previewTrimDb, 1) + " dB" : juce::String ("--"),
+    g.setColour ((previewProcessingActive || appliedMatchActive) ? textColour : mutedTextColour);
+    g.drawText (hasReference ? juce::String (previewTrimDb, 1) + " dB"
+                             : (audioProcessor.hasAppliedMatch() ? juce::String ("stored") : juce::String ("--")),
                 footer,
                 juce::Justification::centredLeft);
 }
@@ -724,7 +731,7 @@ void BolbolRefMasterAudioProcessorEditor::drawDetailedSummary (juce::Graphics& g
                                : (currentPreviewBandGainsDb[index] > 1.0f ? "boost preview"
                                : (currentPreviewBandGainsDb[index] < -1.0f ? "cut preview" : "close"));
         const auto statusColour = ! hasReference ? mutedTextColour
-                                 : (statusText == "close" ? successColour
+                                 : (juce::String (statusText) == "close" ? successColour
                                  : (currentPreviewBandGainsDb[index] > 0.0f ? warningColour : negativeColour));
 
         g.setColour (textColour);

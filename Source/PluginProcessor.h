@@ -19,6 +19,21 @@
 class BolbolRefMasterAudioProcessor  : public juce::AudioProcessor
 {
 public:
+    static constexpr int fftOrder = 11;
+    static constexpr int fftSize = 1 << fftOrder;
+    static constexpr int fftHopSize = fftSize / 2;
+    static constexpr int spectrumBinCount = fftSize / 2;
+    static constexpr int previewBandCount = 5;
+    static constexpr float spectrumSmoothingAlpha = 0.2f;
+    static constexpr int previewDifferenceSmoothingRadius = 4;
+    static constexpr float previewEqSmoothingTimeSeconds = 0.08f;
+    static constexpr float previewEqMixSmoothingTimeSeconds = 0.03f;
+    static constexpr auto appliedMatchEnabledParamID = "appliedMatchEnabled";
+    static constexpr auto previewEqEnabledParamID = "previewEqEnabled";
+    static constexpr auto previewEqBypassedParamID = "previewEqBypassed";
+    static constexpr auto previewBlendAmountParamID = "previewBlendAmount";
+    static constexpr auto previewOutputGainParamID = "previewOutputGainDb";
+
     struct PreviewMatchPoint
     {
         float frequencyHz = 0.0f;
@@ -41,19 +56,12 @@ public:
         float q = 1.0f;
     };
 
-    static constexpr int fftOrder = 11;
-    static constexpr int fftSize = 1 << fftOrder;
-    static constexpr int fftHopSize = fftSize / 2;
-    static constexpr int spectrumBinCount = fftSize / 2;
-    static constexpr int previewBandCount = 5;
-    static constexpr float spectrumSmoothingAlpha = 0.2f;
-    static constexpr int previewDifferenceSmoothingRadius = 4;
-    static constexpr float previewEqSmoothingTimeSeconds = 0.08f;
-    static constexpr float previewEqMixSmoothingTimeSeconds = 0.03f;
-    static constexpr auto previewEqEnabledParamID = "previewEqEnabled";
-    static constexpr auto previewEqBypassedParamID = "previewEqBypassed";
-    static constexpr auto previewBlendAmountParamID = "previewBlendAmount";
-    static constexpr auto previewOutputGainParamID = "previewOutputGainDb";
+    struct MatchStateSnapshot
+    {
+        std::array<GeneratedPreviewBand, previewBandCount> bands {};
+        float outputTrimDb = 0.0f;
+        bool valid = false;
+    };
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
@@ -102,6 +110,11 @@ public:
     std::array<GeneratedPreviewBand, previewBandCount> getGeneratedPreviewBands() const noexcept;
     std::array<float, previewBandCount> getCurrentPreviewEqBandGainsDb() const noexcept;
     float getPreviewOutputTrimDb() const noexcept;
+    void commitPreviewAsAppliedMatch();
+    void clearAppliedMatch() noexcept;
+    bool hasAppliedMatch() const noexcept;
+    void setAppliedMatchEnabled (bool shouldBeEnabled) noexcept;
+    bool isAppliedMatchEnabled() const noexcept;
     void setPreviewEqBypassed (bool shouldBeBypassed) noexcept;
     bool isPreviewEqBypassed() const noexcept;
     void setPreviewEqEnabled (bool shouldBeEnabled) noexcept;
@@ -127,6 +140,11 @@ private:
     void performFrequencyAnalysis() noexcept;
     void updatePreviewFilterCoefficients (int numSamples) noexcept;
     void applyPreviewEq (juce::AudioBuffer<float>& buffer) noexcept;
+    MatchStateSnapshot buildLivePreviewMatchState() const noexcept;
+    MatchStateSnapshot getCommittedMatchState() const noexcept;
+    MatchStateSnapshot getActiveMatchState() const noexcept;
+    void setCommittedMatchState (const MatchStateSnapshot& snapshot) noexcept;
+    void clearCommittedMatchStateBuffers() noexcept;
 
     juce::dsp::FFT forwardFFT { fftOrder };
     juce::dsp::WindowingFunction<float> windowingFunction {
@@ -138,6 +156,7 @@ private:
     std::array<float, fftSize * 2> fftData {};
     std::array<std::array<float, spectrumBinCount>, 2> spectrumBuffers {};
     std::array<std::array<float, spectrumBinCount>, 2> referenceSpectrumBuffers {};
+    std::array<MatchStateSnapshot, 2> committedMatchStateBuffers {};
     std::array<PreviewFilter, previewBandCount> previewFilters {};
     std::array<juce::LinearSmoothedValue<float>, previewBandCount> previewBandGainSmoothers {};
     std::array<std::atomic<float>, previewBandCount> currentPreviewBandGainsDb {};
@@ -145,6 +164,8 @@ private:
     juce::AudioBuffer<float> previewEqBuffer;
     std::atomic<int> activeSpectrumBufferIndex { 0 };
     std::atomic<int> activeReferenceSpectrumBufferIndex { 0 };
+    std::atomic<int> activeCommittedMatchStateBufferIndex { 0 };
+    std::atomic<bool> committedMatchAvailable { false };
     std::atomic<bool> referenceTrackLoaded { false };
     juce::AudioFormatManager audioFormatManager;
     juce::String referenceTrackName;
