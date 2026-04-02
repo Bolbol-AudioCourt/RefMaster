@@ -147,6 +147,24 @@ int main (int argc, char* argv[])
         const bool restoredBlend = std::abs (restored.getPreviewBlendAmount() - 0.73f) < 0.01f;
         const bool restoredGain = std::abs (restored.getPreviewOutputGainDb() - 1.5f) < 0.15f;
 
+        juce::ValueTree brokenState ("PARAMETERS");
+        brokenState.setProperty ("previewEqEnabled", true, nullptr);
+        brokenState.setProperty ("previewEqBypassed", false, nullptr);
+        brokenState.setProperty ("previewBlendAmount", 0.42f, nullptr);
+        brokenState.setProperty ("previewOutputGainDb", 2.0f, nullptr);
+        brokenState.setProperty ("referenceTrackPath", "/tmp/this-file-should-not-exist.mp3", nullptr);
+
+        juce::MemoryBlock brokenStateBlock;
+        if (const auto xml = brokenState.createXml())
+            BolbolRefMasterAudioProcessor::copyXmlToBinary (*xml, brokenStateBlock);
+
+        BolbolRefMasterAudioProcessor brokenRestore;
+        brokenRestore.prepareToPlay (44100.0, 512);
+        brokenRestore.setStateInformation (brokenStateBlock.getData(), static_cast<int> (brokenStateBlock.getSize()));
+
+        const bool brokenStateHasNoReference = ! brokenRestore.hasReferenceTrack();
+        const bool brokenStateShowsError = brokenRestore.hasReferenceLoadError();
+
         auto printStats = [] (const char* label, const RunStats& stats)
         {
             std::cout << label
@@ -180,6 +198,8 @@ int main (int argc, char* argv[])
         std::cout << "state_restored_bypassed=" << (restoredBypassed ? "true" : "false") << "\n";
         std::cout << "state_restored_blend=" << (restoredBlend ? "true" : "false") << "\n";
         std::cout << "state_restored_gain=" << (restoredGain ? "true" : "false") << "\n";
+        std::cout << "broken_state_has_no_reference=" << (brokenStateHasNoReference ? "true" : "false") << "\n";
+        std::cout << "broken_state_shows_error=" << (brokenStateShowsError ? "true" : "false") << "\n";
 
         return (loaded
              && dryIsTransparent
@@ -191,7 +211,9 @@ int main (int argc, char* argv[])
              && restoredEnabled
              && ! restoredBypassed
              && restoredBlend
-             && restoredGain) ? 0 : 2;
+             && restoredGain
+             && brokenStateHasNoReference
+             && brokenStateShowsError) ? 0 : 2;
     }
     catch (const std::exception& e)
     {
