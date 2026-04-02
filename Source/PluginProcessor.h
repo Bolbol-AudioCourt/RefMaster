@@ -26,6 +26,21 @@ public:
         float q = 1.0f;
     };
 
+    struct GeneratedPreviewBand
+    {
+        enum class Shape
+        {
+            lowShelf,
+            peak,
+            highShelf
+        };
+
+        Shape shape = Shape::peak;
+        float frequencyHz = 0.0f;
+        float gainDb = 0.0f;
+        float q = 1.0f;
+    };
+
     static constexpr int fftOrder = 11;
     static constexpr int fftSize = 1 << fftOrder;
     static constexpr int fftHopSize = fftSize / 2;
@@ -84,6 +99,7 @@ public:
     std::array<float, spectrumBinCount> getPreviewDifferenceSpectrumDb() const noexcept;
     std::array<float, previewBandCount> getPreviewBandAdjustmentsDb() const noexcept;
     std::array<PreviewMatchPoint, previewBandCount> getPreviewMatchPoints() const noexcept;
+    std::array<GeneratedPreviewBand, previewBandCount> getGeneratedPreviewBands() const noexcept;
     std::array<float, previewBandCount> getCurrentPreviewEqBandGainsDb() const noexcept;
     float getPreviewOutputTrimDb() const noexcept;
     void setPreviewEqBypassed (bool shouldBeBypassed) noexcept;

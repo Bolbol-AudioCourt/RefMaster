@@ -502,6 +502,28 @@ BolbolRefMasterAudioProcessor::getPreviewMatchPoints() const noexcept
     return matchPoints;
 }
 
+std::array<BolbolRefMasterAudioProcessor::GeneratedPreviewBand, BolbolRefMasterAudioProcessor::previewBandCount>
+BolbolRefMasterAudioProcessor::getGeneratedPreviewBands() const noexcept
+{
+    std::array<GeneratedPreviewBand, previewBandCount> bands {};
+    const auto matchPoints = getPreviewMatchPoints();
+    const auto currentGains = getCurrentPreviewEqBandGainsDb();
+
+    for (size_t index = 0; index < bands.size(); ++index)
+    {
+        auto shape = GeneratedPreviewBand::Shape::peak;
+
+        if (index == 0)
+            shape = GeneratedPreviewBand::Shape::lowShelf;
+        else if (index == bands.size() - 1)
+            shape = GeneratedPreviewBand::Shape::highShelf;
+
+        bands[index] = GeneratedPreviewBand { shape, matchPoints[index].frequencyHz, currentGains[index], matchPoints[index].q };
+    }
+
+    return bands;
+}
+
 std::array<float, BolbolRefMasterAudioProcessor::previewBandCount> BolbolRefMasterAudioProcessor::getCurrentPreviewEqBandGainsDb() const noexcept
 {
     std::array<float, previewBandCount> gains {};
@@ -776,12 +798,12 @@ void BolbolRefMasterAudioProcessor::performFrequencyAnalysis() noexcept
 
 void BolbolRefMasterAudioProcessor::updatePreviewFilterCoefficients (int numSamples) noexcept
 {
-    const auto previewMatchPoints = getPreviewMatchPoints();
+    const auto previewBands = getGeneratedPreviewBands();
     constexpr std::array<float, previewBandCount> bandQValues { 0.707f, 0.85f, 0.9f, 0.85f, 0.707f };
 
     for (size_t index = 0; index < previewFilters.size(); ++index)
     {
-        const auto targetGainDb = hasReferenceTrack() ? previewMatchPoints[index].gainDb : 0.0f;
+        const auto targetGainDb = hasReferenceTrack() ? previewBands[index].gainDb : 0.0f;
         previewBandGainSmoothers[index].setTargetValue (targetGainDb);
         const auto smoothedGainDb = previewBandGainSmoothers[index].skip (numSamples);
         currentPreviewBandGainsDb[index].store (smoothedGainDb, std::memory_order_release);
@@ -789,25 +811,25 @@ void BolbolRefMasterAudioProcessor::updatePreviewFilterCoefficients (int numSamp
 
         std::array<float, 6> coefficients;
 
-        if (index == 0)
+        if (previewBands[index].shape == GeneratedPreviewBand::Shape::lowShelf)
         {
             coefficients = juce::dsp::IIR::ArrayCoefficients<float>::makeLowShelf (currentSampleRate,
-                                                                                   juce::jlimit (20.0f, 120.0f, previewMatchPoints[index].frequencyHz),
+                                                                                   juce::jlimit (20.0f, 120.0f, previewBands[index].frequencyHz),
                                                                                    bandQValues[index],
                                                                                    gainFactor);
         }
-        else if (index == previewFilters.size() - 1)
+        else if (previewBands[index].shape == GeneratedPreviewBand::Shape::highShelf)
         {
             coefficients = juce::dsp::IIR::ArrayCoefficients<float>::makeHighShelf (currentSampleRate,
-                                                                                    juce::jlimit (6000.0f, 20000.0f, previewMatchPoints[index].frequencyHz),
+                                                                                    juce::jlimit (6000.0f, 20000.0f, previewBands[index].frequencyHz),
                                                                                     bandQValues[index],
                                                                                     gainFactor);
         }
         else
         {
             coefficients = juce::dsp::IIR::ArrayCoefficients<float>::makePeakFilter (currentSampleRate,
-                                                                                     previewMatchPoints[index].frequencyHz,
-                                                                                     juce::jmax (0.4f, previewMatchPoints[index].q),
+                                                                                     previewBands[index].frequencyHz,
+                                                                                     juce::jmax (0.4f, previewBands[index].q),
                                                                                      gainFactor);
         }
 
